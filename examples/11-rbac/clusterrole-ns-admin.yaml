@@ -1,0 +1,24 @@
+# dev 그룹에게 default 네임스페이스에만 admin 권한 부여
+# (ClusterRole을 RoleBinding으로 묶으면 해당 네임스페이스로 한정됨)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: keycloak-default-admin
+rules:
+- apiGroups: ["*"]
+  resources: ["*"]
+  verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: default-role-binding
+  namespace: default
+subjects:
+- kind: Group
+  name: dev
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: keycloak-default-admin
+  apiGroup: rbac.authorization.k8s.io

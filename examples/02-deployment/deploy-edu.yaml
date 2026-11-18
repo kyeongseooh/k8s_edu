@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: edu-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: edu-web
+  template:
+    metadata:
+      labels:
+        app: edu-web
+    spec:
+      containers:
+        - name: web
+          image: ubuntu/apache2:latest
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: edu-service
+spec:
+  selector:
+    app: edu-web
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: NodePort

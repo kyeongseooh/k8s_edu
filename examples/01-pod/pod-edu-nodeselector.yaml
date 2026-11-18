@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-edu
+  labels:
+    app: edu-app
+spec:
+  nodeSelector:
+    type: "worker"
+  containers:
+  - name: web
+    image: ubuntu/apache2:latest
+    command:
+      - "/bin/sh"
+      - "-c"
+      - >
+        echo "ServerName localhost" > /etc/apache2/conf-available/server-name.conf &&
+        a2enconf server-name &&
+        echo "$(hostname)-$(hostname -i)" > /var/www/html/index.html &&
+        apache2ctl -DFOREGROUND
+    ports:
+    - containerPort: 80

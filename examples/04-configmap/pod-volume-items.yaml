@@ -1,0 +1,23 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: busybox
+spec:
+  containers:
+    - name: busybox
+      image: busybox
+      command:
+        - sleep
+        - "3600"
+      volumeMounts:
+        - name: config-volume
+          mountPath: /etc/config
+      imagePullPolicy: IfNotPresent
+  volumes:
+    - name: config-volume
+      configMap:
+        name: edu-config
+        items:
+          - key: config.json
+            path: config.json
+  restartPolicy: Always
