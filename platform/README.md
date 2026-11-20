@@ -12,8 +12,8 @@
 | [00. 한눈에 보기와 준비](docs/00-overview.md) | 각 시스템의 역할, 접속 정보, 실습 준비 | 화면 접속, 네임스페이스 준비 |
 | [01. Harbor](docs/01-harbor.md) | 이미지 저장소 | Docker 이미지 빌드 → push → 쿠버네티스에서 pull |
 | [02. Argo CD](docs/02-argocd.md) | GitOps 배포 | Git 수정으로 배포·변경·복구 |
-| 03. Airflow 설치 | Argo CD + Helm | Git에 적은 설정으로 Airflow 만들기 |
-| 04. Airflow DAG | 워크플로 실행 | DAG 배포, 작업 Pod 관찰, 내 이미지로 작업 실행 |
+| [03. Airflow 설치](docs/03-airflow.md) | Argo CD + Helm | Git에 적은 설정으로 Airflow 만들기 |
+| [04. Airflow DAG](docs/04-airflow-dag.md) | 워크플로 실행 | DAG 배포, 작업 Pod 관찰, 내 이미지로 작업 실행 |
 | 05. Keycloak과 kubectl | 로그인과 권한 | Keycloak 계정으로 kubectl 로그인, 그룹별 권한 |
 | 06. Prometheus · Grafana | 모니터링 | 쿠버네티스와 Airflow 지표 조회, 대시보드, 알림 |
 | 07. MinIO | S3 호환 저장소 | 버킷과 객체 다루기, Pod에서 S3 사용 |
