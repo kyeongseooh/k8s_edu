@@ -172,14 +172,13 @@ Scheduler가 0.18코어를 쓰고 있습니다. 기초 과정 [17장](../../docs
 
 ```bash
 kubectl -n edu-airflow run mcurl --rm -i --restart=Never --image=busybox:1.36 -- \
-  sh -c 'wget -qO- http://airflow-statsd:9102/metrics | grep -E "^airflow_(dagbag_size|scheduler_heartbeat|ti_successes|ti_failures) "'
+  sh -c 'wget -qO- http://airflow-statsd:9102/metrics | grep -E "^airflow_(dagbag_size|ti_successes|ti_failures) "'
 ```
 
 ```
 airflow_dagbag_size 2
-airflow_scheduler_heartbeat 318
-airflow_ti_failures 2
-airflow_ti_successes 7
+airflow_ti_failures 3
+airflow_ti_successes 9
 ```
 
 지표는 나오고 있습니다. 그런데 Prometheus에는 없습니다.
