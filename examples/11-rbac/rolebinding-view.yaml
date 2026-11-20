@@ -1,0 +1,13 @@
+# 미리 만들어져 있는 ClusterRole "view"를 이 네임스페이스 안에서만 viewer에게 준다
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: viewer-view
+subjects:
+- kind: ServiceAccount
+  name: viewer
+  namespace: edu-lab
+roleRef:
+  kind: ClusterRole                  # Role 대신 ClusterRole을 가리킨다
+  name: view
+  apiGroup: rbac.authorization.k8s.io

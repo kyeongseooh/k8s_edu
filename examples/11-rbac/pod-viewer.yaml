@@ -1,0 +1,11 @@
+# viewer ServiceAccount로 실행되는 Pod
+apiVersion: v1
+kind: Pod
+metadata:
+  name: viewer-pod
+spec:
+  serviceAccountName: viewer         # 이 Pod는 viewer의 권한으로 API를 호출한다
+  containers:
+  - name: app
+    image: curlimages/curl:8.10.1
+    command: ["sleep", "3600"]

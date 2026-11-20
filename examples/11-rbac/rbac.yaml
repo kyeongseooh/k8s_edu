@@ -1,0 +1,29 @@
+# 1) 누가: ServiceAccount
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: viewer
+---
+# 2) 무엇을: Role (권한 목록)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-reader
+rules:
+- apiGroups: [""]                    # ""는 core 그룹 (Pod, Service, ConfigMap 등)
+  resources: ["pods"]                # 대상 리소스
+  verbs: ["get", "list", "watch"]    # 허용할 동작 (읽기만)
+---
+# 3) 연결: RoleBinding (viewer에게 pod-reader를 준다)
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: viewer-pod-reader
+subjects:                            # 누구에게
+- kind: ServiceAccount
+  name: viewer
+  namespace: edu-lab                 # ServiceAccount가 있는 네임스페이스
+roleRef:                             # 어떤 권한을
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io
