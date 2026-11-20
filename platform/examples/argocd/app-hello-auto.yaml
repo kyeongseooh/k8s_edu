@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: edu-hello
+  namespace: argocd                    # Application은 Argo CD가 설치된 네임스페이스에 만든다
+  finalizers:                          # Application을 지울 때 배포했던 리소스도 함께 지운다
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:                              # 어디에서 읽어 올 것인가 (Git)
+    repoURL: https://github.com/kyeongseooh/k8s_edu.git
+    targetRevision: main               # 브랜치 (또는 태그, 커밋)
+    path: platform/gitops/hello        # 저장소 안의 디렉터리
+  destination:                         # 어디에 만들 것인가 (클러스터)
+    server: https://kubernetes.default.svc
+    namespace: edu-platform
+  syncPolicy:
+    automated:                         # Git이 바뀌면 사람이 누르지 않아도 자동으로 반영한다
+      prune: true                      # Git에서 지운 리소스는 클러스터에서도 지운다
+      selfHeal: true                   # 누가 클러스터를 직접 고치면 Git 내용으로 되돌린다

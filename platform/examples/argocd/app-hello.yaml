@@ -3,6 +3,8 @@ kind: Application
 metadata:
   name: edu-hello
   namespace: argocd                    # Application은 Argo CD가 설치된 네임스페이스에 만든다
+  finalizers:                          # Application을 지울 때 배포했던 리소스도 함께 지운다
+  - resources-finalizer.argocd.argoproj.io
 spec:
   project: default
   source:                              # 어디에서 읽어 올 것인가 (Git)
