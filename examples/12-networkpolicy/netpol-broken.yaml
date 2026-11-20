@@ -1,0 +1,19 @@
+# 고장 실습: 허용 대상의 레이블이 실제 Pod와 다르다
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: db-allow-frontend
+spec:
+  podSelector:
+    matchLabels:
+      app: db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: front-end        # 틀림! 실제 Pod의 레이블은 role=frontend
+    ports:
+    - protocol: TCP
+      port: 80

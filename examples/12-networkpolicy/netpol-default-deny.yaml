@@ -1,0 +1,10 @@
+# 이 네임스페이스의 모든 Pod에 대해, 들어오는 트래픽을 기본적으로 막는다
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}                # {} = 이 네임스페이스의 모든 Pod
+  policyTypes:
+  - Ingress
+  # ingress 규칙이 하나도 없다 = 허용하는 것이 없다 = 전부 차단

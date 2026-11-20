@@ -1,92 +1,39 @@
 # 12. NetworkPolicy — Pod 사이의 방화벽
 
-> 이 장도 **사고 대응 실습** 형식입니다: 정상 상태 → 실제 장애 유발 → 증거 → (막히면 펼쳐보는)
-> 복구 → 성공 판정 → 정리. 0장에서 배정받은 개인 네임스페이스(`$NS`)를 그대로 쓰고, 리소스
-> 이름(`billing-db`, `checkout-app`, `scanner-bot` 등)은 다른 장과 겹치지 않게 지었습니다.
-> 네임스페이스를 새로 만들거나 지우지 않습니다.
+**이 장을 마치면**
 
-## 1. 개념
+- 쿠버네티스의 기본 네트워크 동작("모두 허용")과 NetworkPolicy의 역할을 설명할 수 있습니다.
+- 특정 Pod에서 오는 접속만 허용하는 정책을 만들고, 차단되는 것을 확인합니다.
+- 접속이 "거부"되는 것과 "응답 없음"의 차이로 원인을 좁힐 수 있습니다.
 
-쿠버네티스의 기본 동작은 다소 충격적입니다: **모든 Pod는 서로 자유롭게 통신할 수 있습니다.**
-웹 Pod든, 다른 팀의 Pod든, 누구나 DB Pod에 접속을 시도할 수 있다는 뜻입니다.
+---
 
-**NetworkPolicy(네트워크폴리시)** 는 Pod 수준의 **방화벽 규칙**입니다.
-"DB Pod에는 프론트엔드 Pod만, 80 포트로만 접속 허용" 같은 제어를 할 수 있습니다.
+## 1. 왜 필요한가
 
-구성 요소는 3가지입니다.
+쿠버네티스에서는 기본적으로 **모든 Pod가 서로 통신할 수 있습니다.** 네임스페이스가 달라도 마찬가지입니다.
+편리하지만, 이대로라면 아무 Pod나 DB에 접속할 수 있습니다. Pod 하나가 해킹당하면 클러스터 안의 다른 모든 서비스가 위험해집니다.
 
-- **podSelector**: 이 정책을 **적용받을** Pod 선택 (레이블로)
-- **Ingress**(수신 규칙): 선택된 Pod로 **들어오는** 트래픽을 누가/어디서 보낼 수 있는지
-- **Egress**(송신 규칙): 선택된 Pod에서 **나가는** 트래픽이 어디로 갈 수 있는지
+**NetworkPolicy(네트워크 폴리시)** 는 Pod 앞에 세우는 방화벽입니다. "이 Pod에는 저 Pod만 접속할 수 있다"를 정합니다.
 
-> **중요한 동작 원리 — 화이트리스트**: 어떤 Pod가 NetworkPolicy의 대상으로 **선택되는 순간**,
-> 그 방향(Ingress/Egress)의 트래픽은 **기본 전부 차단**되고, 정책에 명시된 것만 허용됩니다.
-> "차단 규칙을 추가"하는 게 아니라 "허용 목록을 작성"하는 방식입니다.
+![NetworkPolicy](../images/12-networkpolicy.svg)
 
-> **전제 조건**: NetworkPolicy는 네트워크 플러그인(CNI)이 지원해야 동작합니다.
-> Calico, Cilium 등은 지원하고, Flannel(기본형)은 지원하지 않습니다. 지원하지 않는 환경에서는
-> 정책을 만들어도 **조용히 무시**되니 주의하세요. (이 실습은 지원 CNI를 전제로 합니다.)
+[11장 RBAC](11-rbac.md)과 헷갈리기 쉽습니다. 둘은 막는 대상이 다릅니다.
 
-## 2. YAML 뜯어보기 (참고용 — 적용하지 않음)
-
-실무에서 자주 보는 "교과서형" 전체 예시입니다. ipBlock/namespaceSelector/podSelector를 함께
-보여주기 위한 것이라, 이 장 실습에서는 **적용하지 않고 읽기만** 합니다.
-([examples/12-networkpolicy/netpol.yaml](../examples/12-networkpolicy/netpol.yaml))
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: test-network-policy
-spec:
-  podSelector:              # ① 이 정책의 적용 대상: role=db 레이블이 붙은 Pod
-    matchLabels:
-      role: db
-  policyTypes:              # ② 수신/송신 중 어느 쪽을 통제할지
-  - Ingress
-  - Egress
-  ingress:                  # ③ 들어오는 트래픽 허용 목록
-  - from:
-    - ipBlock:                        # (a) 이 IP 대역에서 오는 것 허용
-        cidr: 172.17.0.0/16
-        except:                       #     단, 이 하위 대역은 제외
-        - 172.17.1.0/24
-    - namespaceSelector:              # (b) 이 레이블이 붙은 네임스페이스의 Pod 허용
-        matchLabels:
-          project: myproject
-    - podSelector:                    # (c) 같은 네임스페이스에서 이 레이블의 Pod 허용
-        matchLabels:
-          role: frontend
-    ports:
-    - protocol: TCP
-      port: 6379
-  egress:                   # ④ 나가는 트래픽 허용 목록
-  - to:
-    - ipBlock:
-        cidr: 10.0.0.0/24
-    ports:
-    - protocol: TCP
-      port: 5978
-```
-
-> **YAML 함정**: `from:` 아래 `-`로 나열된 항목들은 **OR** 관계입니다. `- namespaceSelector`와
-> `podSelector`를 **한 항목 안에**(대시 하나에) 같이 쓰면 **AND**가 됩니다. 들여쓰기와 대시
-> 하나로 의미가 완전히 달라지니 조심하세요.
-
-## 3. 준비 — Pod 3개
-
-```bash
-k apply -f examples/12-networkpolicy/lab-pods.yaml
-k wait --for=condition=Ready pod/billing-db pod/checkout-app pod/scanner-bot --timeout=60s
-```
-
-| Pod | 레이블 | 역할 |
+| | 무엇을 제어하나 | 예 |
 |---|---|---|
-| `billing-db` | `role=db` | 보호 대상 |
-| `checkout-app` | `role=frontend` | 정당한 클라이언트 |
-| `scanner-bot` | `role=hacker` | 침입자(항상 막혀야 함) |
+| RBAC | **쿠버네티스 API** 호출 (kubectl, API 요청) | "이 계정은 Pod를 삭제할 수 없다" |
+| NetworkPolicy | **Pod 사이의 네트워크** 통신 | "이 Pod는 DB의 3306 포트에 접속할 수 없다" |
 
-## 4. 정상 상태 만들기 — 정책 적용
+### 알아야 할 규칙 세 가지
+
+1. **정책이 없으면 전부 허용.** 어떤 정책에도 선택되지 않은 Pod는 누구와도 통신할 수 있습니다.
+2. **정책에 선택되면 "허용 목록" 방식으로 바뀐다.** 정책이 선택한 Pod는, 정책에 적힌 것만 받고 나머지는 전부 차단합니다.
+3. **대상은 레이블로 고른다.** Service, Deployment와 마찬가지로 Pod를 레이블로 지정합니다.
+
+> **전제**: NetworkPolicy는 클러스터의 네트워크 플러그인(CNI)이 지원해야 동작합니다. Calico, Cilium 등은 지원합니다.
+> 지원하지 않는 CNI에서는 정책을 만들어도 **오류 없이 무시**됩니다. 이 교재의 실습 환경은 Calico를 사용합니다.
+
+## 2. YAML 뜯어보기
 
 ([examples/12-networkpolicy/netpol-db.yaml](../examples/12-networkpolicy/netpol-db.yaml))
 
@@ -96,13 +43,13 @@ kind: NetworkPolicy
 metadata:
   name: db-allow-frontend
 spec:
-  podSelector:
+  podSelector:                   # 이 정책을 적용할 대상 Pod
     matchLabels:
-      role: db
+      app: db
   policyTypes:
-  - Ingress
+  - Ingress                      # 들어오는 트래픽을 제어한다
   ingress:
-  - from:
+  - from:                        # 아래 조건에 맞는 곳에서 오는 것만 허용
     - podSelector:
         matchLabels:
           role: frontend
@@ -111,123 +58,253 @@ spec:
       port: 80
 ```
 
+소리 내어 읽으면 이렇습니다. "**`app=db` Pod로 들어오는** 트래픽은, **`role=frontend` Pod에서 오는 TCP 80번**만 허용한다."
+
+| 필드 | 의미 |
+|---|---|
+| `spec.podSelector` | 정책을 **적용받는** Pod (보호 대상) |
+| `policyTypes` | `Ingress`(들어오는 것), `Egress`(나가는 것) 중 무엇을 제어할지 |
+| `ingress[].from` | 접속을 허용할 출발지 |
+| `ingress[].ports` | 허용할 포트 |
+
+> 여기서 `Ingress`는 "들어오는 방향"이라는 뜻의 일반 단어입니다. [10장](10-ingress.md)의 Ingress 리소스와는 관계없습니다.
+
+## 3. 실습 ① — 정책이 없을 때
+
+DB 역할을 하는 Pod `db`(와 Service), 그리고 클라이언트 두 개를 만듭니다. ([examples/12-networkpolicy/apps.yaml](../examples/12-networkpolicy/apps.yaml))
+
 ```bash
-k apply -f examples/12-networkpolicy/netpol-db.yaml
-
-DB_IP=$(k get pod billing-db -o jsonpath='{.status.podIP}')
-
-echo "--- checkout-app → db (기대: 성공) ---"
-if OUT=$(k exec checkout-app -- wget -qO- --timeout=3 "http://$DB_IP" 2>&1); then
-  echo "PASS: 접속 성공"; printf '%s\n' "$OUT" | head -c 40; echo
-else
-  echo "FAIL: 접속 실패 (기대와 다름) — $OUT"
-fi
-
-echo "--- scanner-bot → db (기대: 타임아웃, 차단) ---"
-if OUT=$(k exec scanner-bot -- wget -qO- --timeout=3 "http://$DB_IP" 2>&1); then
-  echo "FAIL: 차단되어야 하는데 접속에 성공했다 — $OUT"
-else
-  echo "PASS: 타임아웃으로 차단됨 (기대한 결과) — $OUT"
-fi
+kubectl apply -f examples/12-networkpolicy/apps.yaml
+kubectl wait --for=condition=Ready pod/db pod/frontend pod/other --timeout=90s
+kubectl get pod --show-labels
 ```
 
-여기까지가 **정상 상태**입니다: 정당한 클라이언트(`checkout-app`)는 `PASS: 접속 성공`, 침입자
-(`scanner-bot`)는 `PASS: 타임아웃으로 차단됨`이 찍혀야 합니다. 둘 다 `--timeout=3` 덕분에
-3초 안에 반드시 끝납니다(무한 대기 없음). `wget`이 타임아웃되면 종료 코드가 0이 아니므로
-`if/else`가 실제 성공/차단을 정확히 구분합니다 — 무조건 `|| true`로 넘기지 않습니다.
-
-## 5. 장애 발생 — "배포했는데 체크아웃이 DB에 접속 못 해요"
-
-운영팀이 `checkout-app`을 새 버전으로 배포하면서, 실수로 레이블을 `role=checkout`으로
-바꿔버렸다고 합시다 (오타/배포 스크립트 실수를 재현).
-
-```bash
-k label pod checkout-app role=checkout --overwrite
+```
+NAME       READY   STATUS    RESTARTS   AGE   LABELS
+db         1/1     Running   0          2s    app=db
+frontend   1/1     Running   0          2s    role=frontend
+other      1/1     Running   0          2s    role=other
 ```
 
-증상 재현:
+두 클라이언트에서 각각 `db`에 접속합니다.
 
 ```bash
-echo "--- checkout-app → db (지금은?) ---"
-if OUT=$(k exec checkout-app -- wget -qO- --timeout=3 "http://$DB_IP" 2>&1); then
-  echo "접속 성공 (아직 장애 아님) — $OUT"
-else
-  echo "타임아웃! 정당한 클라이언트인데도 차단됨 (장애 재현됨) — $OUT"
-fi
+kubectl exec frontend -- wget -qO- -T 3 http://db
+kubectl exec other -- wget -qO- -T 3 http://db
 ```
 
-### 증거 / 질문
-
-```bash
-k get pod checkout-app --show-labels
-# role=checkout            ← 지금 레이블
-
-k get networkpolicy db-allow-frontend -oyaml | grep -A3 podSelector
-# (ingress.from[].podSelector) matchLabels: role: frontend   ← 정책이 기대하는 레이블
+```
+db data
+db data
 ```
 
-- NetworkPolicy 자체는 바뀐 게 없습니다. 그런데 왜 접속이 안 될까요?
-- 정책을 느슨하게 고치는 것(예: `role: frontend` 조건 삭제)과, Pod 레이블을 원래대로 돌리는 것
-  중 어느 쪽이 "장애의 진짜 원인"을 고치는 길일까요?
+정책이 없으니 둘 다 접속됩니다. (`-T 3`은 3초 안에 응답이 없으면 포기하라는 옵션입니다)
 
-## 6. 복구 (막혔을 때만 펼쳐보세요)
-
-<details><summary>복구 절차 보기</summary>
-
-원인은 NetworkPolicy가 아니라 **배포 과정에서 잘못 붙은 레이블**이었습니다. 정책을 느슨하게
-바꾸지 말고, Pod 레이블을 올바르게 되돌립니다.
+## 4. 실습 ② — frontend만 허용하기
 
 ```bash
-k label pod checkout-app role=frontend --overwrite
-k get pod checkout-app --show-labels
-# role=frontend
+kubectl apply -f examples/12-networkpolicy/netpol-db.yaml
+kubectl describe networkpolicy db-allow-frontend
+```
+
+```
+Spec:
+  PodSelector:     app=db
+  Allowing ingress traffic:
+    To Port: 80/TCP
+    From:
+      PodSelector: role=frontend
+  Not affecting egress traffic
+  Policy Types: Ingress
+```
+
+다시 접속해 봅니다.
+
+```bash
+kubectl exec frontend -- wget -qO- -T 3 http://db
+kubectl exec other -- wget -qO- -T 3 http://db
+```
+
+```
+db data
+
+wget: download timed out
+command terminated with exit code 1
+```
+
+`frontend`는 그대로 접속되고, `other`는 **3초를 기다리다 실패**했습니다.
+
+**오류 모양을 기억해 두세요.** [03장](03-service.md)에서 Service가 잘못됐을 때는 `Connection refused`가 **즉시** 나왔습니다. NetworkPolicy가 막으면 요청이 조용히 버려져서 **응답 없이 시간이 초과**됩니다.
+
+| 증상 | 의미 | 의심할 것 |
+|---|---|---|
+| `bad address` | 이름을 IP로 바꾸지 못함 | Service 이름, DNS |
+| `Connection refused` (즉시) | 도착은 했는데 받아 줄 곳이 없음 | Service의 selector / targetPort, 앱이 떠 있는지 |
+| `timed out` (한참 뒤) | 중간에서 버려짐 | **NetworkPolicy**, 방화벽 |
+
+### 레이블로 판단한다는 것
+
+정책은 Pod의 이름이 아니라 **레이블**을 봅니다. `other`의 레이블을 `role=frontend`로 바꾸면 어떻게 될까요?
+
+```bash
+kubectl label pod other role=frontend --overwrite
+sleep 3
+kubectl exec other -- wget -qO- -T 3 http://db
+```
+
+```
+db data
+```
+
+접속됩니다. 정책도 Pod도 다시 만들지 않았는데, 레이블만 바꿨더니 즉시 허용 대상이 됐습니다. 원래대로 돌려놓습니다.
+
+```bash
+kubectl label pod other role=other --overwrite
+sleep 3
+kubectl exec other -- wget -qO- -T 3 http://db
+```
+
+```
+wget: download timed out
+command terminated with exit code 1
+```
+
+> 그래서 실무에서는 "누가 Pod에 레이블을 붙일 수 있는가"(RBAC)도 함께 관리해야 합니다. 레이블만 바꾸면 방화벽을 통과할 수 있기 때문입니다.
+
+## 5. 고장 내고 고쳐 보기 — frontend도 접속이 안 된다
+
+누군가 정책을 수정한 뒤, `frontend`에서도 DB 접속이 안 된다는 신고가 들어왔습니다.
+
+```bash
+kubectl apply -f examples/12-networkpolicy/netpol-broken.yaml
+sleep 3
+kubectl exec frontend -- wget -qO- -T 3 http://db
+```
+
+```
+wget: download timed out
+command terminated with exit code 1
+```
+
+원인을 찾아보세요. 먼저 [03장](03-service.md)에서 배운 순서대로 Service 쪽을 확인하고, 그다음 정책을 봅니다.
+
+```bash
+kubectl get pod db
+kubectl get endpoints db
+kubectl describe networkpolicy db-allow-frontend
+kubectl get pod frontend --show-labels
+```
+
+<details><summary>원인과 해결 방법</summary>
+
+```
+NAME   READY   STATUS    RESTARTS   AGE
+db     1/1     Running   0          39s
+
+NAME   ENDPOINTS           AGE
+db     192.168.139.92:80   39s
+
+  Allowing ingress traffic:
+    To Port: 80/TCP
+    From:
+      PodSelector: role=front-end
+
+NAME       READY   STATUS    RESTARTS   AGE   LABELS
+frontend   1/1     Running   0          39s   role=frontend
+```
+
+- `db` Pod는 정상이고 엔드포인트도 있습니다. Service 문제가 아닙니다.
+- 증상이 `timed out`입니다. 네트워크 정책을 의심할 차례입니다.
+- 정책은 `role=front-end`를 허용하는데, 실제 Pod의 레이블은 `role=frontend`입니다. 하이픈(`-`) 하나 차이로 **허용 대상이 아무도 없는 정책**이 됐습니다.
+
+NetworkPolicy도 맞는 Pod가 없다고 해서 오류를 내지 않습니다. Service selector([03장](03-service.md)), RoleBinding subjects([11장](11-rbac.md))와 같은 종류의 함정입니다.
+
+올바른 정책을 다시 적용합니다. Pod를 재시작할 필요는 없습니다.
+
+```bash
+kubectl apply -f examples/12-networkpolicy/netpol-db.yaml
+sleep 3
+kubectl exec frontend -- wget -qO- -T 3 http://db
+```
+
+```
+db data
 ```
 
 </details>
 
-## 7. 성공 판정
+## 6. 정리
 
 ```bash
-echo "--- checkout-app → db (기대: 성공) ---"
-if OUT=$(k exec checkout-app -- wget -qO- --timeout=3 "http://$DB_IP" 2>&1); then
-  echo "PASS: 접속 성공"; printf '%s\n' "$OUT" | head -c 40; echo
-else
-  echo "FAIL: 여전히 차단됨 — $OUT"
-fi
-
-echo "--- scanner-bot → db (기대: 여전히 차단) ---"
-if OUT=$(k exec scanner-bot -- wget -qO- --timeout=3 "http://$DB_IP" 2>&1); then
-  echo "FAIL: 차단되어야 하는데 접속에 성공했다 (정책이 느슨해졌을 가능성) — $OUT"
-else
-  echo "PASS: 타임아웃으로 여전히 차단됨 — $OUT"
-fi
+kubectl delete -f examples/12-networkpolicy/netpol-db.yaml
+kubectl delete -f examples/12-networkpolicy/apps.yaml
 ```
 
-두 가지가 모두 `PASS`여야 성공입니다: ① 정당한 클라이언트는 다시 접속 성공, ② 침입자는 여전히
-차단(정책을 느슨하게 풀어서 "고친 척"한 게 아님을 재확인).
+## 7. 알아 두면 좋은 것
 
-## 8. 정리
+### "기본 차단" 정책
 
-```bash
-k delete networkpolicy db-allow-frontend
-k delete pod billing-db checkout-app scanner-bot
+실무에서는 먼저 **네임스페이스 전체를 차단**해 두고, 필요한 통신만 하나씩 허용하는 방식을 많이 씁니다.
+([examples/12-networkpolicy/netpol-default-deny.yaml](../examples/12-networkpolicy/netpol-default-deny.yaml))
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+spec:
+  podSelector: {}                # {} = 이 네임스페이스의 모든 Pod
+  policyTypes:
+  - Ingress
+  # ingress 규칙이 하나도 없다 = 허용하는 것이 없다 = 전부 차단
 ```
+
+정책은 **더해집니다.** 이 정책과 4절의 `db-allow-frontend`가 함께 있으면, `db`는 `frontend`의 접속만 받고 나머지 Pod는 아무 접속도 받지 못합니다. 허용 정책을 추가할수록 열리는 문이 늘어나는 구조입니다. "이것은 금지"라는 정책은 없습니다.
+
+### 출발지를 지정하는 세 가지 방법
+
+```yaml
+ingress:
+- from:
+  - podSelector:                 # 같은 네임스페이스의, 이 레이블을 가진 Pod
+      matchLabels:
+        role: frontend
+  - namespaceSelector:           # 이 레이블을 가진 네임스페이스의 모든 Pod
+      matchLabels:
+        team: payments
+  - ipBlock:                     # 이 IP 대역 (클러스터 밖의 주소 등)
+      cidr: 10.0.0.0/24
+```
+
+### 나가는 트래픽(Egress)을 막을 때 주의할 점
+
+`policyTypes`에 `Egress`를 넣으면 Pod에서 **나가는** 통신도 제어할 수 있습니다. 이때 DNS 조회(UDP/TCP 53번)를 허용하지 않으면
+Service 이름을 IP로 바꾸지 못해서 모든 접속이 `bad address`로 실패합니다. Egress 정책을 쓸 때 가장 흔한 실수입니다.
+
+## 핵심 요약
+
+- 기본값은 모든 Pod가 서로 통신할 수 있다.
+- NetworkPolicy에 선택된 Pod는 정책에 적힌 통신만 허용하고 나머지는 차단한다.
+- 대상과 허용 출발지 모두 레이블로 지정한다.
+- NetworkPolicy가 막으면 `timed out`(응답 없음)으로 나타난다.
+- 정책은 더해지는 방식이다. 허용만 있고 금지는 없다.
+- CNI가 지원해야 동작한다.
 
 ## 확인 문제
 
-1. NetworkPolicy가 없는 기본 상태에서 Pod 간 통신은 어떻게 되는가?
-2. 이번 장애의 원인은 정책이었나, 레이블이었나? 정책을 느슨하게 풀어서 고치면 왜 위험한가?
-3. NetworkPolicy를 만들었는데 아무 효과가 없다면 의심해 볼 것은?
+1. NetworkPolicy가 하나도 없는 네임스페이스에서 Pod 사이의 통신은 어떻게 되나요?
+2. `spec.podSelector`와 `ingress[].from[].podSelector`는 각각 무엇을 가리키나요?
+3. 접속 시도가 `Connection refused`로 즉시 실패할 때와 `timed out`으로 실패할 때, 각각 무엇을 먼저 의심해야 하나요?
+4. `podSelector: {}`이고 `ingress` 규칙이 없는 정책은 어떤 효과를 내나요?
 
 <details><summary>정답 보기</summary>
 
-1. 전부 허용 — 모든 Pod가 서로 자유롭게 통신 가능
-2. 레이블(배포 실수)이 원인이었다. 정책을 느슨하게 풀면(예: `role: frontend` 조건 제거) 당장은
-   증상이 사라지지만, `scanner-bot`(침입자)도 같이 뚫려버려 보안 사고로 이어질 수 있다.
-3. CNI(네트워크 플러그인)가 NetworkPolicy를 지원하는지 — Flannel 등은 지원하지 않아 조용히
-   무시된다
+1. 모두 허용됩니다. 다른 네임스페이스의 Pod와도 통신할 수 있습니다.
+2. `spec.podSelector`는 정책을 적용받는(보호되는) Pod, `from`의 `podSelector`는 접속이 허용되는 출발지 Pod입니다.
+3. `Connection refused`는 Service의 selector·targetPort나 앱 상태를, `timed out`은 NetworkPolicy(또는 방화벽)를 먼저 의심합니다.
+4. 그 네임스페이스의 모든 Pod에 대해 들어오는 트래픽을 전부 차단합니다(기본 차단).
 </details>
 
 ---
 
-다음 장: [13. Cordon / Drain — 노드 점검 준비](13-cordon-drain.md)
+다음 장: [13. Cordon / Drain — 노드를 안전하게 비우기](13-cordon-drain.md)

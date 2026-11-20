@@ -1,17 +1,15 @@
-# role=db Pod(billing-db)는 role=frontend Pod만 TCP 80으로 접속 허용
-# namespace는 적지 않음 — k() 적용 시 네임스페이스가 채워집니다.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
   name: db-allow-frontend
 spec:
-  podSelector:
+  podSelector:                   # 이 정책을 적용할 대상 Pod
     matchLabels:
-      role: db
+      app: db
   policyTypes:
-  - Ingress
+  - Ingress                      # 들어오는 트래픽을 제어한다
   ingress:
-  - from:
+  - from:                        # 아래 조건에 맞는 곳에서 오는 것만 허용
     - podSelector:
         matchLabels:
           role: frontend
