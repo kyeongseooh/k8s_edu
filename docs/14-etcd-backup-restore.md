@@ -1,219 +1,399 @@
-# 14. etcd 백업 / 복구 — 스냅샷 근거를 읽는 법
+# 14. etcd 백업과 복원 — 클러스터의 기억 지키기
 
-> 이 장은 **실제 etcd 파일/Secret/백업/읽기/복구를 전혀 수행하지 않습니다.** 운영 클러스터의
-> etcd에 손대는 건 위험도가 매우 높기 때문에, 대신 **가상 스냅샷(그냥 로컬 텍스트 파일)** 을
-> 만들어서 "해시로 무결성을 확인하고, 예상 데이터 유실 구간을 RPO(복구 시점 목표)와 비교하는" **근거
-> 판독 연습**을 합니다. 모든 작업은 `mktemp -d`로 만든 임시 디렉터리 안에서만 이루어지며,
-> 쿠버네티스 클러스터나 기존 파일은 수정하지 않습니다 (다른 수강생과 경로가
-> 겹칠 일이 없습니다).
+**이 장을 마치면**
 
-## 1. 개념
+- etcd가 무엇을 저장하고, 왜 백업이 중요한지 설명할 수 있습니다.
+- etcd 스냅샷을 만들고, 스냅샷으로 데이터를 복원할 수 있습니다.
+- 복원하면 "스냅샷 이후의 변경은 사라진다"는 것을 직접 확인합니다.
 
-지금까지 만든 모든 것(Pod, Deployment, Service, Secret, 정책...)의 정의와 상태는 **etcd**라는
-분산 key-value 데이터베이스에 저장됩니다. 컨트롤 플레인 노드에서 돌며, 클러스터의 **유일한
-진실의 원천(source of truth)** 역할을 합니다.
+---
 
-- etcd가 날아가면 = **클러스터의 모든 설정이 날아감**
-- 백업은 **스냅샷(snapshot)** 방식: 특정 시점의 전체 데이터를 파일 하나로 저장
-- 실제로는 실행 중인 etcd의 스냅샷을 `etcdctl snapshot save`로 만들며, 현대 버전에서 오프라인 검사·복원은 `etcdutl`이 담당합니다.
+## 1. 왜 필요한가
 
-> **Python 비유**: etcd 스냅샷은 SQLite `.db` 파일을 통째로 복사해 두는 것과 비슷합니다.
-> 사고가 나면 그 파일로 되돌립니다.
+[00장](00-시작하기-전에.md)의 구조 그림에 **etcd**가 있었습니다. 지금까지 만든 모든 것 — Deployment, Service, ConfigMap, Secret, RBAC 설정 — 은 전부 etcd에 저장됩니다.
+`kubectl apply`는 결국 "API 서버를 거쳐 etcd에 기록하는 것"이고, `kubectl get`은 "etcd에서 읽어 오는 것"입니다.
 
-### 스냅샷을 다룰 때 반드시 확인할 3가지
+**etcd는 클러스터의 기억입니다.** etcd의 데이터를 잃으면 노드와 컨테이너가 멀쩡해도 클러스터는 "무엇을 실행해야 하는지"를 전부 잊어버립니다.
+그래서 etcd는 정기적으로 백업해야 합니다. 백업 파일을 **스냅샷(snapshot)** 이라고 부릅니다.
 
-1. **해시(무결성)** — 스냅샷 파일이 저장/전송 중 손상되지 않았는지. 생성 직후 계산해 둔
-   해시값과, 복구하려는 시점에 다시 계산한 해시값이 같아야 "믿을 수 있는" 스냅샷입니다.
-2. **시점(타임스탬프)** — 이 스냅샷이 언제 찍힌 것인지. 장애 발생 시각과 비교해서 **얼마나
-   오래된 데이터로 되돌아가는지**를 알아야 합니다.
-3. **RPO(Recovery Point Objective)** — "최대 이 정도까지만 데이터를 잃어도 된다"는 **목표치**
-   (예: "RPO 60초"). 실제 사고가 나면, "장애 발생 시각 − 실제로 쓸 수 있었던 가장 최근의
-   정상 스냅샷 시각"을 계산해서 나오는 값은 **실제(예상) 손실 구간**이며, 이것과 RPO 목표를
-   **비교**해서 목표를 지켰는지 판단합니다. 이 실습에서도 두 값을 구분해서 다룹니다
-   (`RPO_TARGET_SECONDS` = 목표, `ACTUAL_LOSS_SECONDS` = 실제 손실 구간).
+| etcd에 들어 있는 것 | etcd에 들어 있지 않은 것 |
+|---|---|
+| 모든 쿠버네티스 리소스의 정의와 상태 (Pod, Deployment, Service, Secret …) | PV 안의 실제 데이터 (DB 파일, 업로드 파일) |
+| | 컨테이너 이미지 |
+| | 앱의 로그 |
 
-> **해시 일치가 복구를 보장하지는 않음**: 해시가 일치한다는 건 "저장/전송 중 파일이
-> 손상되지 않았다"는 것만 확인해 줍니다. etcd 내부 데이터 일관성, 복구 절차 자체의 성공
-> 여부는 별개의 문제입니다. 실제 운영에서는 `etcdutl snapshot status`로 스냅샷의 내부
-> 상태(revision, key 개수 등)까지 추가로 확인합니다. 이 실습은 "해시/시점 판독" 단계까지만
-> 다룹니다.
+> etcd를 복원해도 **PV 안의 데이터는 돌아오지 않습니다.** 그것은 스토리지 쪽에서 따로 백업해야 합니다.
 
-> **PV 데이터는 별도**: etcd 스냅샷에는 Pod/Deployment/Secret 같은 **API 리소스 정의**만
-> 들어있습니다. PV(PersistentVolume)에 실제로 쓰인 **애플리케이션 데이터(파일, DB 내용)는
-> etcd 백업에 포함되지 않습니다.** PV 데이터는 별도의 볼륨 스냅샷/백업 도구(예: CSI
-> VolumeSnapshot, Velero)로 따로 보호해야 합니다.
+### 복원은 "시간을 되돌리는 것"
 
-> **etcdctl / etcdutl 버전 주의**: etcd 3.5부터 `snapshot restore`가 `etcdctl`에서 `etcdutl`로
-> 옮겨졌습니다. 클라이언트 도구 버전과 etcd 서버 버전이 다르면 스냅샷 포맷/명령이 호환되지
-> 않을 수 있으므로, 실제 운영에서는 **백업을 만든 환경과 복구할 환경의 etcdctl/etcdutl
-> 버전을 반드시 맞춰야** 합니다.
+![복원과 시간](../images/14-etcd-restore.svg)
 
-## 2. 준비 — 실습용 임시 디렉터리
+스냅샷으로 복원하면 클러스터는 **스냅샷을 찍은 시점**으로 돌아갑니다. 그 뒤에 만든 것은 모두 사라집니다.
+그래서 "얼마나 자주 백업하는가"가 곧 "사고가 났을 때 얼마만큼의 작업을 잃는가"입니다.
+
+## 2. 실습 방법
+
+실제 클러스터의 etcd를 복원하는 것은 클러스터 전체를 과거로 되돌리는 위험한 작업입니다. 여럿이 쓰는 클러스터에서 연습할 수 없습니다.
+
+그래서 이 장에서는 **실습 전용 etcd를 Pod로 하나 띄워서**, 그 안에서 백업과 복원을 처음부터 끝까지 해 봅니다. 사용하는 명령(`etcdctl`)과 절차는 실제 클러스터와 같습니다.
+그다음 5절에서 **실제 클러스터의 etcd를 읽기 전용으로** 들여다봅니다.
+
+## 3. 실습 ① — 스냅샷 만들기
+
+### 3-1. 실습용 etcd 띄우기
+
+([examples/14-etcd-backup-restore/etcd-lab.yaml](../examples/14-etcd-backup-restore/etcd-lab.yaml))
+
+```yaml
+      containers:
+      - name: etcd
+        image: registry.k8s.io/etcd:3.5.16-0
+        env:
+        - name: DATA_DIR                     # etcd가 데이터를 저장할 디렉터리
+          value: /data/etcd-v1
+        command:
+        - etcd
+        - --data-dir=$(DATA_DIR)
+        - --listen-client-urls=http://0.0.0.0:2379
+        - --advertise-client-urls=http://127.0.0.1:2379
+        volumeMounts:
+        - name: data
+          mountPath: /data                   # PVC를 마운트
+```
+
+etcd는 `--data-dir`로 지정한 디렉터리에 데이터를 저장합니다. 이 경로를 환경변수 `DATA_DIR`로 빼 둔 것은 4절에서 복원할 때 바꾸기 위해서입니다.
+`/data`는 PVC라서 Pod가 다시 만들어져도 내용이 남습니다([06장](06-pv-pvc.md)).
 
 ```bash
-REPO_ROOT=$(pwd)
-RPO_TARGET_SECONDS=60   # 이번 사고 대응의 목표: "최대 60초치 데이터까지만 잃는다"
-WORKDIR=$(mktemp -d /tmp/etcd-lab.XXXXXX)
-echo "WORKDIR=$WORKDIR"
-cd "$WORKDIR"
+kubectl apply -f examples/14-etcd-backup-restore/etcd-lab.yaml
+kubectl rollout status deployment/etcd-lab
+kubectl exec deploy/etcd-lab -- etcdctl endpoint health
 ```
 
-> `mktemp -d`는 매번 고유한 디렉터리를 만들어 주므로, 같은 호스트를 여러 수강생이 함께
-> 써도 경로가 겹치지 않습니다. `REPO_ROOT`는 정리 단계에서 저장소 루트로 돌아오기 위해
-> 미리 기억해 둡니다.
-
-스냅샷 메타데이터 형식 참고용 (적용/실행하지 않는 참고 파일):
-([examples/14-etcd-backup-restore/snapshot-metadata-example.json](../examples/14-etcd-backup-restore/snapshot-metadata-example.json))
-
-```json
-[
-  { "file": "etcd-snap-0001.db", "taken_at_epoch": 1731000000, "sha256": "<해시>" },
-  { "file": "etcd-snap-0002.db", "taken_at_epoch": 1731003600, "sha256": "<해시>" }
-]
+```
+127.0.0.1:2379 is healthy: successfully committed proposal: took = 2.890859ms
 ```
 
-## 3. 정상 상태 만들기 — 가상 스냅샷 2개 생성
+`etcdctl`은 etcd를 다루는 명령줄 도구입니다. etcd 이미지 안에 들어 있어서 `kubectl exec`로 실행합니다.
 
-"etcd-snap-0001"(1차 백업)과 "etcd-snap-0002"(2차 백업)를 만들고, 생성 직후 해시를
-`snapshots.tsv`에 기록합니다 (실제 백업 운영에서 반드시 해야 하는 절차입니다).
+### 3-2. 데이터 넣기
+
+etcd는 **키-값 저장소**입니다. Python의 dict처럼 키로 값을 넣고 꺼냅니다.
 
 ```bash
-printf 'cluster-state-v1\n' > etcd-snap-0001.db
-T1=$(date -u +%s)
-H1=$(sha256sum etcd-snap-0001.db | awk '{print $1}')
-printf '%s\tetcd-snap-0001.db\t%s\n' "$T1" "$H1" > snapshots.tsv
+kubectl exec deploy/etcd-lab -- etcdctl put /shop/config "mode=prod"
+kubectl exec deploy/etcd-lab -- etcdctl put /shop/users/alice "admin"
+kubectl exec deploy/etcd-lab -- etcdctl put /shop/users/bob "viewer"
 
-sleep 2   # 유한 대기: 두 스냅샷의 시점을 구분하기 위함 (2초)
-
-printf 'cluster-state-v2\n' > etcd-snap-0002.db
-T2=$(date -u +%s)
-H2=$(sha256sum etcd-snap-0002.db | awk '{print $1}')
-printf '%s\tetcd-snap-0002.db\t%s\n' "$T2" "$H2" >> snapshots.tsv
-
-cat snapshots.tsv
+kubectl exec deploy/etcd-lab -- etcdctl get /shop --prefix
 ```
 
-## 4. 장애 발생 — 스냅샷 저장소 손상 + 클러스터 사고
+```
+/shop/config
+mode=prod
+/shop/users/alice
+admin
+/shop/users/bob
+viewer
+```
 
-두 가지 일이 동시에 벌어집니다 (실무에서 흔한 패턴: 모니터링이 못 잡은 백업 손상 + 그 뒤에
-실제 장애).
+`--prefix`는 "`/shop`으로 시작하는 모든 키"라는 뜻입니다. 키와 값이 한 줄씩 번갈아 나옵니다.
+
+### 3-3. 스냅샷 저장
 
 ```bash
-# ① 가장 최신 백업(0002)이 저장 중 손상됐는데, 메타데이터는 갱신되지 않음
-printf 'CORRUPTED-BYTES' >> etcd-snap-0002.db
-
-sleep 1
-# ② 장애 발생 시각 기록
-INCIDENT_TIME=$(date -u +%s)
-echo "INCIDENT_TIME=$INCIDENT_TIME"
+kubectl exec deploy/etcd-lab -- etcdctl snapshot save /data/backup.db
 ```
 
-### 증거 / 질문
+```
+...
+Snapshot saved at /data/backup.db
+```
 
-각 스냅샷의 "지금 다시 계산한 해시"와 "생성 직후 기록해 둔 해시"를 비교합니다.
+스냅샷이 제대로 만들어졌는지 확인합니다. **백업은 만든 뒤 반드시 확인해야 합니다.** 깨진 백업은 없는 것과 같습니다.
 
 ```bash
-while IFS=$'\t' read -r ts file recorded_hash; do
-  current_hash=$(sha256sum "$file" | awk '{print $1}')
-  if [ "$current_hash" = "$recorded_hash" ]; then
-    echo "OK   $file (ts=$ts) 해시 일치 → 신뢰 가능"
-  else
-    echo "BAD  $file (ts=$ts) 해시 불일치 → 손상, 복구에 쓰면 안 됨"
-  fi
-done < snapshots.tsv
+kubectl exec deploy/etcd-lab -- etcdctl snapshot status /data/backup.db -w table
 ```
 
-- 어떤 스냅샷이 "손상되어 못 쓰는" 파일인가요?
-- 손상된 스냅샷을 빼고 나면, 실제로 복구에 쓸 수 있는 **가장 최근** 스냅샷은 무엇인가요?
-- 그 스냅샷 시점과 `INCIDENT_TIME`의 차이가 바로 이번 사고의 **실제(예상) 손실 구간**입니다.
-  몇 초(실무라면 몇 분/시간)일까요? 목표(`RPO_TARGET_SECONDS`=60초)를 지킬 수 있을까요?
+```
++----------+----------+------------+------------+
+|   HASH   | REVISION | TOTAL KEYS | TOTAL SIZE |
++----------+----------+------------+------------+
+| 9c09be26 |        4 |          9 |      20 kB |
++----------+----------+------------+------------+
+```
 
-## 5. 복구 (막혔을 때만 펼쳐보세요)
+| 열 | 의미 |
+|---|---|
+| `HASH` | 스냅샷 내용의 지문. 파일이 손상되면 값이 달라진다 |
+| `REVISION` | 이 스냅샷이 담고 있는 시점. etcd는 변경이 있을 때마다 이 숫자를 1씩 올린다 |
+| `TOTAL KEYS` | 들어 있는 키의 수 |
 
-<details><summary>판독 절차 보기</summary>
+> `Deprecated: Use etcdutl snapshot status instead.`라는 안내가 나올 수 있습니다. 최신 버전에서는 `status`와 `restore`가 `etcdutl`이라는 별도 도구로 옮겨 가는 중이라는 뜻이고, 동작에는 문제가 없습니다.
 
-손상된 스냅샷(해시 불일치)은 후보에서 제외하고, 해시가 일치하는 것 중 **가장 최신**
-스냅샷을 복구 시점으로 선택합니다. 이 실습에서는 `etcd-snap-0001.db`만 해시가 일치하므로
-그것이 유일한 복구 후보입니다.
+## 4. 실습 ② — 사고와 복원
+
+### 4-1. 사고 발생
+
+누군가 실수로 사용자 정보를 지우고 설정을 망가뜨렸습니다.
 
 ```bash
-# 해시가 일치하는 스냅샷만 골라서, 그중 가장 최신 타임스탬프를 선택
-BEST_TS=""
-BEST_FILE=""
-while IFS=$'\t' read -r ts file recorded_hash; do
-  current_hash=$(sha256sum "$file" | awk '{print $1}')
-  if [ "$current_hash" = "$recorded_hash" ]; then
-    if [ -z "$BEST_TS" ] || [ "$ts" -gt "$BEST_TS" ]; then
-      BEST_TS="$ts"
-      BEST_FILE="$file"
-    fi
-  fi
-done < snapshots.tsv
+kubectl exec deploy/etcd-lab -- etcdctl del /shop/users --prefix
+kubectl exec deploy/etcd-lab -- etcdctl put /shop/config "mode=BROKEN"
 
-echo "복구에 쓸 스냅샷: $BEST_FILE (ts=$BEST_TS)"
-
-ACTUAL_LOSS_SECONDS=$((INCIDENT_TIME - BEST_TS))
-echo "실제(예상) 손실 구간 = ${ACTUAL_LOSS_SECONDS}초 (이 시간 동안의 변경사항은 복구 후 사라짐)"
-echo "RPO 목표 = ${RPO_TARGET_SECONDS}초"
-
-if [ "$ACTUAL_LOSS_SECONDS" -le "$RPO_TARGET_SECONDS" ]; then
-  echo "목표 충족: 실제 손실(${ACTUAL_LOSS_SECONDS}초) <= 목표(${RPO_TARGET_SECONDS}초)"
-else
-  echo "목표 초과: 실제 손실(${ACTUAL_LOSS_SECONDS}초) > 목표(${RPO_TARGET_SECONDS}초) — 백업 주기를 더 짧게 가져가야 함"
-fi
+kubectl exec deploy/etcd-lab -- etcdctl get /shop --prefix
 ```
 
-> 실제 운영이라면 여기서 버전에 맞는 `etcdutl snapshot restore` 절차 로 복구하지만,
-> 이 실습은 "어떤 스냅샷을 써야 하는지, 얼마나 손실이 나는지"를 판단하는 단계까지만
-> 다룹니다. 해시가 일치해도 `etcdutl snapshot status`로 내부 상태를 한 번 더 확인하기 전에는
-> "복구 가능"이라고 단정하지 않습니다.
+```
+2
+OK
 
-</details>
+/shop/config
+mode=BROKEN
+```
 
-## 6. 성공 판정
+사용자 2명이 사라졌고 설정도 바뀌었습니다.
+
+### 4-2. 복원 절차
+
+![복원 절차](../images/14-etcd-procedure.svg)
+
+**① 스냅샷을 새 디렉터리에 푼다.**
 
 ```bash
-EXPECT_BEST="etcd-snap-0001.db"
-if [ "$BEST_FILE" = "$EXPECT_BEST" ] && [ "$ACTUAL_LOSS_SECONDS" -gt 0 ]; then
-  echo "PASS: 손상된 스냅샷(0002)을 제외하고 0001을 올바르게 선택했고, 실제 손실 구간(${ACTUAL_LOSS_SECONDS}초)도 계산됨"
-else
-  echo "FAIL: 선택한 스냅샷 또는 손실 구간 계산이 기대와 다름 (BEST_FILE=$BEST_FILE, ACTUAL_LOSS_SECONDS=$ACTUAL_LOSS_SECONDS)"
-fi
+kubectl exec deploy/etcd-lab -- etcdctl snapshot restore /data/backup.db --data-dir /data/etcd-restored
 ```
 
-이 실습 조건(스냅샷 간격 2초, 손상 전 sleep 1초)에서는 `ACTUAL_LOSS_SECONDS`가 `RPO_TARGET_SECONDS`
-(60초)보다 훨씬 작게 나옵니다 — 즉 목표를 충족합니다. 반대로 백업 주기가 길었다면(예: 하루에
-한 번) 같은 계산 방식으로 목표를 초과하는 상황도 똑같이 판별할 수 있습니다.
+```
+...
+info  snapshot/v3_snapshot.go:293  restored snapshot  {"path": "/data/backup.db", ... "data-dir": "/data/etcd-restored", ...}
+```
 
-## 7. 정리
+`restore`는 실행 중인 etcd를 건드리지 않습니다. **스냅샷 파일로부터 새 데이터 디렉터리를 만들 뿐**입니다. 그래서 아직 아무것도 바뀌지 않았습니다.
 
 ```bash
-cd "$REPO_ROOT"
-rm -rf "$WORKDIR"
+kubectl exec deploy/etcd-lab -- etcdctl get /shop --prefix
 ```
+
+```
+/shop/config
+mode=BROKEN
+```
+
+**② etcd가 새 디렉터리를 쓰도록 바꾸고 다시 시작한다.**
+
+`DATA_DIR` 환경변수를 바꾸면 Deployment가 Pod를 새로 만들고, 새 etcd는 복원된 디렉터리로 시작합니다.
+
+```bash
+kubectl set env deployment/etcd-lab DATA_DIR=/data/etcd-restored
+kubectl rollout status deployment/etcd-lab
+```
+
+**③ 확인한다.**
+
+```bash
+kubectl exec deploy/etcd-lab -- etcdctl get /shop --prefix
+```
+
+```
+/shop/config
+mode=prod
+/shop/users/alice
+admin
+/shop/users/bob
+viewer
+```
+
+지워졌던 사용자가 돌아왔고 설정도 `mode=prod`로 돌아왔습니다.
+
+### 4-3. 복원의 대가: 스냅샷 이후의 변경은 사라진다
+
+1절의 그림을 직접 확인해 봅니다. 새 스냅샷을 찍고, 그 **뒤에** 정상적인 데이터를 하나 추가한 다음, 복원해 봅니다.
+
+```bash
+# 스냅샷을 찍고
+kubectl exec deploy/etcd-lab -- etcdctl snapshot save /data/backup2.db
+
+# 그 뒤에 새 사용자를 추가 (정상적인 변경)
+kubectl exec deploy/etcd-lab -- etcdctl put /shop/users/carol "editor"
+kubectl exec deploy/etcd-lab -- etcdctl get /shop/users --prefix --keys-only
+```
+
+```
+/shop/users/alice
+/shop/users/bob
+/shop/users/carol
+```
+
+```bash
+# 복원
+kubectl exec deploy/etcd-lab -- etcdctl snapshot restore /data/backup2.db --data-dir /data/etcd-restored2
+kubectl set env deployment/etcd-lab DATA_DIR=/data/etcd-restored2
+kubectl rollout status deployment/etcd-lab
+
+kubectl exec deploy/etcd-lab -- etcdctl get /shop/users --prefix --keys-only
+```
+
+```
+/shop/users/alice
+/shop/users/bob
+```
+
+스냅샷 뒤에 추가한 `carol`이 **사라졌습니다.** 복원은 "나쁜 변경만 골라서 되돌리는" 기능이 아닙니다. 스냅샷 이후의 모든 변경을, 좋은 것이든 나쁜 것이든 함께 되돌립니다.
+
+## 5. 실습 ③ — 실제 클러스터의 etcd 들여다보기
+
+이번에는 지금 쓰고 있는 클러스터의 진짜 etcd를 봅니다. **읽기만** 합니다.
+
+> 이 절은 `kube-system` 네임스페이스에 접근할 수 있는 관리자 권한이 필요합니다. 또 etcd가 Pod로 실행되는(kubeadm으로 설치한) 클러스터를 기준으로 합니다.
+
+```bash
+kubectl -n kube-system get pod -l component=etcd -o wide
+```
+
+```
+NAME              READY   STATUS    RESTARTS   AGE   IP           NODE         ...
+etcd-oks1.dd.io   1/1     Running   0          46h   10.0.1.181   oks1.dd.io   ...
+```
+
+etcd도 컨트롤 플레인 노드에서 Pod로 돌고 있습니다. 실습용 etcd와 달리 **인증서**가 있어야 접속할 수 있어서, 옵션 세 개가 더 붙습니다. 자주 쓸 것이므로 변수에 담아 둡니다.
+
+```bash
+ETCD_POD=$(kubectl -n kube-system get pod -l component=etcd -o jsonpath='{.items[0].metadata.name}')
+CERTS="--cacert=/etc/kubernetes/pki/etcd/ca.crt --cert=/etc/kubernetes/pki/etcd/server.crt --key=/etc/kubernetes/pki/etcd/server.key"
+
+kubectl -n kube-system exec $ETCD_POD -- etcdctl $CERTS endpoint health
+kubectl -n kube-system exec $ETCD_POD -- etcdctl $CERTS endpoint status -w table
+```
+
+```
+127.0.0.1:2379 is healthy: successfully committed proposal: took = 9.199389ms
+
++----------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+|    ENDPOINT    |        ID        | VERSION | DB SIZE | IS LEADER | IS LEARNER | RAFT TERM | RAFT INDEX | RAFT APPLIED INDEX | ERRORS |
++----------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+| 127.0.0.1:2379 | c451c73042fbd006 |  3.5.16 |   67 MB |      true |      false |        12 |  122423543 |          122423543 |        |
++----------------+------------------+---------+---------+-----------+------------+-----------+------------+--------------------+--------+
+```
+
+클러스터 전체의 상태가 67MB짜리 데이터베이스 하나에 들어 있습니다.
+
+쿠버네티스 리소스가 어떤 키로 저장되어 있는지 봅니다. 우리 네임스페이스의 Pod를 찾아봅니다.
+
+```bash
+kubectl -n kube-system exec $ETCD_POD -- etcdctl $CERTS get /registry/pods/edu-lab --prefix --keys-only
+kubectl get pod
+```
+
+```
+/registry/pods/edu-lab/etcd-lab-79b6bcd9df-nrm7h
+
+NAME                        READY   STATUS    RESTARTS   AGE
+etcd-lab-79b6bcd9df-nrm7h   1/1     Running   0          2m
+```
+
+`kubectl get pod`이 보여 주는 Pod가 etcd에는 **`/registry/pods/네임스페이스/이름`** 이라는 키로 저장되어 있습니다. 모든 리소스가 이런 식으로 `/registry/종류/네임스페이스/이름` 아래에 들어 있습니다.
+
+### 실제 클러스터의 백업 명령
+
+실제 백업은 3-3과 같은 명령에 인증서 옵션만 더한 것입니다. 스냅샷은 컨트롤 플레인 노드의 디스크에 저장됩니다.
+
+```text
+kubectl -n kube-system exec $ETCD_POD -- etcdctl $CERTS snapshot save /var/lib/etcd/snapshot-20261120.db
+kubectl -n kube-system exec $ETCD_POD -- etcdctl $CERTS snapshot status /var/lib/etcd/snapshot-20261120.db -w table
+```
+
+```
++----------+-----------+------------+------------+
+|   HASH   | REVISION  | TOTAL KEYS | TOTAL SIZE |
++----------+-----------+------------+------------+
+| fcdddc2d | 113174332 |       5733 |      67 MB |
++----------+-----------+------------+------------+
+```
+
+스냅샷 저장은 클러스터에 영향을 주지 않는 안전한 작업입니다. 다만 파일이 컨트롤 플레인 노드에 남으므로, 연습으로 만들었다면 그 노드에서 지워야 합니다.
+
+### 실제 클러스터의 복원 절차 (읽기만 하세요)
+
+kubeadm으로 설치한 클러스터에서의 복원 절차입니다. 4절에서 한 것과 구조가 같습니다. **연습 삼아 실행하지 마세요.**
+
+```text
+# 컨트롤 플레인 노드에서 실행
+
+# 0. API 서버와 etcd를 멈춘다 (매니페스트 파일을 치우면 kubelet이 Pod를 내린다)
+mv /etc/kubernetes/manifests/kube-apiserver.yaml /etc/kubernetes/manifests/etcd.yaml /root/
+
+# 1. 스냅샷을 새 디렉터리에 푼다
+etcdutl snapshot restore /backup/snapshot.db --data-dir /var/lib/etcd-restored
+
+# 2. etcd.yaml 에서 데이터 디렉터리(hostPath)를 /var/lib/etcd-restored 로 바꾼다
+
+# 3. 매니페스트를 되돌려 etcd와 API 서버를 다시 시작한다
+mv /root/etcd.yaml /root/kube-apiserver.yaml /etc/kubernetes/manifests/
+
+# 4. 확인
+kubectl get nodes
+kubectl get pod -A
+```
+
+| 실습(4절) | 실제 클러스터 |
+|---|---|
+| `etcdctl snapshot restore ... --data-dir /data/etcd-restored` | 같음 (새 디렉터리에 복원) |
+| `kubectl set env ... DATA_DIR=...` | `etcd.yaml`의 데이터 디렉터리 경로 수정 |
+| Deployment가 Pod를 다시 만듦 | kubelet이 etcd Pod를 다시 만듦 |
+
+## 6. 정리
+
+```bash
+kubectl delete -f examples/14-etcd-backup-restore/etcd-lab.yaml
+```
+
+PV가 `Released`로 남았다면 [06장](06-pv-pvc.md) 7절과 같은 방법으로 정리합니다.
+
+```bash
+for pv in $(kubectl get pv -o jsonpath='{range .items[?(@.spec.claimRef.namespace=="edu-lab")]}{.metadata.name}{"\n"}{end}'); do
+  kubectl patch pv $pv -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'
+done
+```
+
+## 7. 알아 두면 좋은 것
+
+**백업 운영에서 정해야 하는 것들**
+
+| 질문 | 설명 |
+|---|---|
+| 얼마나 자주? | 사고가 났을 때 잃어도 되는 작업량으로 정한다. 보통 CronJob이나 스케줄러로 자동화한다 |
+| 어디에 보관? | etcd와 **같은 디스크에만 두면 안 된다.** 그 서버가 고장 나면 백업도 함께 사라진다. 다른 서버나 오브젝트 스토리지에 복사한다 |
+| 몇 개를 보관? | 최신 1개만 두면, 그 파일이 손상됐을 때 대안이 없다. 여러 세대를 보관한다 |
+| 복원이 되는가? | 백업만 하고 복원을 해 본 적이 없다면 그 백업은 믿을 수 없다. 정기적으로 별도 환경에 복원해 본다 |
+
+**스냅샷 파일에는 모든 Secret이 들어 있습니다.** [05장](05-secret.md)에서 본 것처럼 Secret은 암호화가 아니라 base64이므로, 스냅샷 파일을 가진 사람은 클러스터의 모든 비밀번호를 볼 수 있습니다. 백업 파일의 접근 권한도 엄격히 관리해야 합니다.
+
+## 핵심 요약
+
+- etcd는 클러스터의 모든 리소스 정의와 상태를 저장하는 키-값 저장소다.
+- `etcdctl snapshot save`로 스냅샷을 만들고, `snapshot status`로 확인한다.
+- 복원은 ① 스냅샷을 **새 디렉터리**에 풀고 ② etcd가 그 디렉터리를 쓰게 한 뒤 다시 시작하는 것이다.
+- 복원하면 스냅샷 이후의 모든 변경이 사라진다.
+- etcd 백업에는 PV 안의 데이터가 들어 있지 않다.
+- 백업은 다른 곳에 보관하고, 복원이 되는지 주기적으로 확인한다.
 
 ## 확인 문제
 
-1. etcd 스냅샷에 포함되지 않는 것은 무엇이며, 그건 어떻게 별도로 보호해야 하는가?
-2. 스냅샷의 해시가 기록해 둔 값과 다르면 무엇을 의미하는가? 해시가 일치하면 복구가
-   보장되는가?
-3. RPO(목표)와 이번 실습에서 계산한 `ACTUAL_LOSS_SECONDS`(실제 손실 구간)는 어떻게 다른가?
+1. etcd에는 무엇이 저장되나요? PVC에 저장한 DB 데이터도 etcd 백업으로 복원되나요?
+2. `etcdctl snapshot restore`를 실행하면 실행 중인 etcd의 데이터가 바로 바뀌나요?
+3. 09:00에 스냅샷을 찍고, 10:00에 새 Deployment를 만들고, 11:00에 09:00 스냅샷으로 복원했습니다. 10:00에 만든 Deployment는 어떻게 되나요?
+4. 스냅샷 파일을 etcd와 같은 서버의 같은 디스크에만 보관하면 무엇이 문제인가요?
 
 <details><summary>정답 보기</summary>
 
-1. PersistentVolume(PV)에 담긴 실제 애플리케이션 데이터. etcd 백업은 API 리소스 정의만
-   담으므로, PV 데이터는 CSI VolumeSnapshot이나 Velero 같은 별도 도구로 백업해야 한다.
-2. 스냅샷 파일이 생성 이후 손상되었거나 변조되었다는 뜻 — 그 스냅샷으로 복구하면 안 된다.
-   다만 해시가 일치해도 그것만으로 복구가 100% 보장되는 것은 아니다 — 해시는 "파일이
-   손상되지 않았다"만 확인해 줄 뿐, etcd 내부 일관성이나 복구 절차의 성공 여부는 별개이며
-   실제로는 `etcdutl snapshot status` 등으로 추가 확인이 필요하다.
-3. RPO는 "최대 이 정도까지만 잃어도 된다"는 **목표치**이고, `ACTUAL_LOSS_SECONDS`는 실제
-   사고에서 "장애 발생 시각 − 쓸 수 있었던 가장 최근 정상 스냅샷 시각"으로 계산한 **실제
-   (예상) 손실 구간**이다. 실제 손실이 목표보다 크면 백업 주기를 더 짧게 가져가야 한다는
-   신호다.
+1. 쿠버네티스 리소스의 정의와 상태가 저장됩니다. PV 안의 실제 데이터는 etcd에 없으므로 etcd 백업으로는 복원되지 않습니다.
+2. 아닙니다. 스냅샷으로부터 새 데이터 디렉터리를 만들 뿐입니다. etcd가 그 디렉터리를 쓰도록 설정을 바꾸고 다시 시작해야 반영됩니다.
+3. 사라집니다. 복원은 스냅샷 시점으로 돌아가는 것이므로 그 이후의 변경은 모두 없어집니다.
+4. 그 서버나 디스크가 고장 나면 etcd와 백업을 동시에 잃습니다. 백업은 다른 서버나 외부 저장소에 보관해야 합니다.
 </details>
 
 ---
 
-🎉 수고하셨습니다! 전체 과정을 마쳤습니다. [cheatsheet.md](cheatsheet.md)를 옆에 두고
-직접 이것저것 만들어 보는 것이 가장 좋은 복습입니다.
+다음 장: [15. 스케줄링 — Pod가 놓일 노드 정하기](15-scheduling.md)

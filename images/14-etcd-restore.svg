@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 330" width="900" height="330">
+<defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="sa" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151"/></marker><marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e03131"/></marker><marker id="sr" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#e03131"/></marker><marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#22a05a"/></marker><marker id="sg" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#22a05a"/></marker><marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="sb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#3b82f6"/></marker><marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f08c00"/></marker><marker id="so" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#f08c00"/></marker><marker id="ep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="sp" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#7c3aed"/></marker></defs>
+<rect width="900" height="330" fill="#ffffff"/>
+<text x="450.0" y="30" font-size="18" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">etcd 백업과 복원: 시간을 스냅샷 시점으로 되돌린다</text>
+<line x1="40" y1="120" x2="860" y2="120" stroke="#374151" stroke-width="2"/>
+<circle cx="110" cy="120" r="8" fill="#22a05a" stroke="#22a05a"/>
+<text x="110" y="100" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">09:00</text>
+<rect x="30" y="140" width="160" height="40" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="110.0" y="163.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">스냅샷 저장</text>
+<circle cx="330" cy="120" r="8" fill="#3b82f6" stroke="#3b82f6"/>
+<text x="330" y="100" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">10:00</text>
+<rect x="250" y="140" width="160" height="40" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="330.0" y="163.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Deployment 추가</text>
+<circle cx="550" cy="120" r="8" fill="#e03131" stroke="#e03131"/>
+<text x="550" y="100" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">11:00</text>
+<rect x="470" y="140" width="160" height="40" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="550.0" y="163.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">사고 발생</text>
+<circle cx="770" cy="120" r="8" fill="#f08c00" stroke="#f08c00"/>
+<text x="770" y="100" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">11:30</text>
+<rect x="690" y="140" width="160" height="40" rx="8" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="770.0" y="163.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">복원</text>
+<polyline points="770,182 770,235 110,235 110,182" fill="none" stroke="#f08c00" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#eo)"/>
+<text x="440" y="228" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#f08c00">스냅샷 시점(09:00)의 상태로 돌아간다</text>
+<rect x="240" y="255" width="400" height="50" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="440" y="276" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#e03131">09:00 이후의 변경(10:00에 추가한 Deployment 포함)은</text>
+<text x="440" y="294" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#e03131" font-weight="700">모두 사라진다 → 백업은 자주, 정기적으로</text>
+<text x="440" y="62" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">시간</text>
+</svg>

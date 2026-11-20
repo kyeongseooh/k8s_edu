@@ -1,0 +1,47 @@
+# 실습 전용 etcd 한 대. 클러스터의 실제 etcd와는 아무 관계가 없다.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: etcd-lab-data
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: etcd-lab
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate               # 기존 Pod를 먼저 내리고 새 Pod를 띄운다 (etcd 두 개가 같은 디스크를 쓰지 않도록)
+  selector:
+    matchLabels:
+      app: etcd-lab
+  template:
+    metadata:
+      labels:
+        app: etcd-lab
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: etcd
+        image: registry.k8s.io/etcd:3.5.16-0
+        env:
+        - name: DATA_DIR                     # etcd가 데이터를 저장할 디렉터리
+          value: /data/etcd-v1
+        command:
+        - etcd
+        - --data-dir=$(DATA_DIR)
+        - --listen-client-urls=http://0.0.0.0:2379
+        - --advertise-client-urls=http://127.0.0.1:2379
+        volumeMounts:
+        - name: data
+          mountPath: /data
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: etcd-lab-data
