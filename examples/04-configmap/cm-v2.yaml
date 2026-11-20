@@ -1,0 +1,11 @@
+# cm.yaml에서 값만 바꾼 버전 (dev -> prod, blue -> green)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-config
+data:
+  APP_MODE: prod
+  APP_COLOR: green
+  index.html: |
+    <h1>Hello from ConfigMap</h1>
+    <p>mode: prod</p>

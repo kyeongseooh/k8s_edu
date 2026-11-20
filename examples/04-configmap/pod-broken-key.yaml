@@ -1,0 +1,16 @@
+# 고장 실습: ConfigMap에 없는 key를 참조한다
+apiVersion: v1
+kind: Pod
+metadata:
+  name: env-broken
+spec:
+  containers:
+  - name: app
+    image: busybox:1.36
+    command: ["sleep", "3600"]
+    env:
+    - name: COLOR
+      valueFrom:
+        configMapKeyRef:
+          name: web-config
+          key: APP_COLOUR          # 오타! 실제 key는 APP_COLOR
