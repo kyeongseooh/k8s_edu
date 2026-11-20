@@ -1,0 +1,46 @@
+# 같은 Pod들을 가리키는 Service 두 개 (Headless, 일반 ClusterIP) + StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: db                     # Headless Service
+spec:
+  clusterIP: None              # 이 한 줄이 Headless Service를 만든다
+  selector:
+    app: db
+  ports:
+  - port: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: db-lb                  # 비교용: 일반 ClusterIP Service
+spec:
+  selector:
+    app: db
+  ports:
+  - port: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: db
+spec:
+  serviceName: db              # Headless Service의 이름과 같아야 한다
+  replicas: 3
+  selector:
+    matchLabels:
+      app: db
+  template:
+    metadata:
+      labels:
+        app: db
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        command: ["sh", "-c"]
+        args:                  # 요청을 받으면 자기 Pod 이름을 응답한다
+        - echo "$(hostname)" > /usr/share/nginx/html/index.html && exec nginx -g 'daemon off;'
+        ports:
+        - containerPort: 80
