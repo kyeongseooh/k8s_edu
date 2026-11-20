@@ -391,11 +391,14 @@ hello   * * * * *   True      0        27s             98s
 
 ```bash
 kubectl delete -f examples/18-batch/cronjob.yaml
-kubectl delete job hello-manual
 kubectl get cronjob,job,pod
 ```
 
-CronJob을 지우면 그 CronJob이 만든 Job과 Pod도 함께 지워집니다. 직접 만든 `hello-manual`은 따로 지웁니다.
+```
+No resources found in edu-lab namespace.
+```
+
+CronJob을 지우면 그 CronJob이 만든 Job과 Pod도 함께 지워집니다. `--from=cronjob/hello`로 만든 `hello-manual`도 그 CronJob에 속한 것으로 기록되어 있어서 함께 지워집니다.
 
 ## 7. 알아 두면 좋은 것
 
