@@ -1,0 +1,21 @@
+# disktype=ssd 레이블이 붙은 노드에만 배치한다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ssd-app
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: ssd-app
+  template:
+    metadata:
+      labels:
+        app: ssd-app
+    spec:
+      terminationGracePeriodSeconds: 2
+      nodeSelector:
+        disktype: ssd              # Pod가 노드를 고른다
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine

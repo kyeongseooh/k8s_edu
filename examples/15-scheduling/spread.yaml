@@ -1,0 +1,26 @@
+# 같은 앱의 Pod를 노드마다 하나씩만 두려는 Deployment (필수 조건)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spread
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: spread
+  template:
+    metadata:
+      labels:
+        app: spread
+    spec:
+      terminationGracePeriodSeconds: 2
+      affinity:
+        podAntiAffinity:           # "이런 Pod가 있는 곳은 피한다"
+          requiredDuringSchedulingIgnoredDuringExecution:    # 필수: 못 지키면 배치하지 않는다
+          - labelSelector:
+              matchLabels:
+                app: spread        # app=spread Pod가 이미 있는
+            topologyKey: kubernetes.io/hostname              # 같은 노드에는 가지 않는다
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine

@@ -1,0 +1,28 @@
+# spread.yaml의 필수 조건을 "가능하면"으로 바꾼 버전
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spread
+spec:
+  replicas: 5
+  selector:
+    matchLabels:
+      app: spread
+  template:
+    metadata:
+      labels:
+        app: spread
+    spec:
+      terminationGracePeriodSeconds: 2
+      affinity:
+        podAntiAffinity:           # "이런 Pod가 있는 곳은 피한다"
+          preferredDuringSchedulingIgnoredDuringExecution:   # 선호: 가능하면 지키고, 안 되면 그냥 배치한다
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: spread
+              topologyKey: kubernetes.io/hostname
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine

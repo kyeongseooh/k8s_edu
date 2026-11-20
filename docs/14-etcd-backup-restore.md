@@ -222,7 +222,9 @@ kubectl exec deploy/etcd-lab -- etcdctl get /shop/users --prefix --keys-only
 
 ```
 /shop/users/alice
+
 /shop/users/bob
+
 /shop/users/carol
 ```
 
@@ -237,6 +239,7 @@ kubectl exec deploy/etcd-lab -- etcdctl get /shop/users --prefix --keys-only
 
 ```
 /shop/users/alice
+
 /shop/users/bob
 ```
 

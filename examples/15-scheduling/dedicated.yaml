@@ -1,0 +1,26 @@
+# 전용 노드 패턴: toleration(들어갈 수 있다) + nodeSelector(거기로만 간다)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: batch
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: batch
+  template:
+    metadata:
+      labels:
+        app: batch
+    spec:
+      terminationGracePeriodSeconds: 2
+      tolerations:                 # 허가증: dedicated=edu taint가 있는 노드에도 들어갈 수 있다
+      - key: dedicated
+        operator: Equal
+        value: edu
+        effect: NoSchedule
+      nodeSelector:                # 지정: dedicated=edu 레이블이 있는 노드로만 간다
+        dedicated: edu
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine

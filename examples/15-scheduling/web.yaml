@@ -1,22 +1,19 @@
+# 아무 조건이 없는 평범한 Deployment
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: placement
+  name: web
 spec:
-  replicas: 1
-  strategy:
-    type: Recreate
+  replicas: 8
   selector:
-    matchLabels: {app: edu-placement}
+    matchLabels:
+      app: web
   template:
     metadata:
-      labels: {app: edu-placement}
+      labels:
+        app: web
     spec:
-      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 2
       containers:
-      - name: web
+      - name: nginx
         image: nginx:1.27-alpine
-        imagePullPolicy: IfNotPresent
-        resources:
-          requests: {cpu: 10m, memory: 8Mi}
-          limits: {cpu: 100m, memory: 32Mi}
