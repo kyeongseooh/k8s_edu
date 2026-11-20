@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 430" width="920" height="430">
+<defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="sa" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151"/></marker><marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e03131"/></marker><marker id="sr" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#e03131"/></marker><marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#22a05a"/></marker><marker id="sg" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#22a05a"/></marker><marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="sb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#3b82f6"/></marker><marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f08c00"/></marker><marker id="so" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#f08c00"/></marker><marker id="ep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="sp" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#7c3aed"/></marker></defs>
+<rect width="920" height="430" fill="#ffffff"/>
+<text x="460.0" y="30" font-size="18" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">문제가 생겼을 때: 어디까지 진행됐는지부터 본다</text>
+<rect x="15" y="60" width="136" height="85" rx="8" fill="#f1eafd" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="83.0" y="92.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">1. 만들어졌나</text>
+<text x="83.0" y="109.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">kubectl get</text>
+<text x="83.0" y="123.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">deploy,rs,pod</text>
+<line x1="152" y1="102" x2="165" y2="102" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="166" y="60" width="136" height="85" rx="8" fill="#fff9db" stroke="#e0a800" stroke-width="1.5"/>
+<text x="234.0" y="92.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">2. 노드가 정해졌나</text>
+<text x="234.0" y="109.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">STATUS가</text>
+<text x="234.0" y="123.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">Pending인가?</text>
+<line x1="303" y1="102" x2="316" y2="102" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="317" y="60" width="136" height="85" rx="8" fill="#fff9db" stroke="#e0a800" stroke-width="1.5"/>
+<text x="385.0" y="92.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">3. 컨테이너가 떴나</text>
+<text x="385.0" y="109.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">ImagePull…</text>
+<text x="385.0" y="123.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">CreateContainer…</text>
+<line x1="454" y1="102" x2="467" y2="102" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="468" y="60" width="136" height="85" rx="8" fill="#fff9db" stroke="#e0a800" stroke-width="1.5"/>
+<text x="536.0" y="92.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">4. 계속 떠 있나</text>
+<text x="536.0" y="109.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">RESTARTS가</text>
+<text x="536.0" y="123.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">늘어나는가?</text>
+<line x1="605" y1="102" x2="618" y2="102" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="619" y="60" width="136" height="85" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="687.0" y="92.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">5. 준비됐나</text>
+<text x="687.0" y="109.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">READY가</text>
+<text x="687.0" y="123.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">1/1인가?</text>
+<line x1="756" y1="102" x2="769" y2="102" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="770" y="60" width="136" height="85" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="838.0" y="92.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">6. 연결되나</text>
+<text x="838.0" y="109.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">Service /</text>
+<text x="838.0" y="123.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">Ingress</text>
+<line x1="83" y1="147" x2="83" y2="193" stroke="#e03131" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#er)"/>
+<rect x="15" y="195" width="136" height="60" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="83.0" y="226.75" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod가 아예 없다</text>
+<rect x="15" y="265" width="136" height="85" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5"/>
+<text x="83" y="292" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">describe rs / deploy</text>
+<text x="83" y="312" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">생성이 거부됐는지</text>
+<text x="83" y="332" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">(quota, 오타)</text>
+<line x1="234" y1="147" x2="234" y2="193" stroke="#e03131" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#er)"/>
+<rect x="166" y="195" width="136" height="60" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="234.0" y="226.75" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pending</text>
+<rect x="166" y="265" width="136" height="85" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5"/>
+<text x="234" y="292" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">describe pod → Events</text>
+<text x="234" y="312" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">FailedScheduling</text>
+<text x="234" y="332" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">15장 · 17장 · 06장</text>
+<line x1="385" y1="147" x2="385" y2="193" stroke="#e03131" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#er)"/>
+<rect x="317" y="195" width="136" height="60" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="385.0" y="220.0" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">ImagePullBackOff</text>
+<text x="385.0" y="233.5" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">CreateContainerConfigError</text>
+<rect x="317" y="265" width="136" height="85" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5"/>
+<text x="385" y="292" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">이미지 이름·태그 (01장)</text>
+<text x="385" y="312" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">ConfigMap/Secret의</text>
+<text x="385" y="332" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">이름·key (04·05장)</text>
+<line x1="536" y1="147" x2="536" y2="193" stroke="#e03131" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#er)"/>
+<rect x="468" y="195" width="136" height="60" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="536.0" y="220.0" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">CrashLoopBackOff</text>
+<text x="536.0" y="233.5" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">OOMKilled</text>
+<rect x="468" y="265" width="136" height="85" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5"/>
+<text x="536" y="292" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">logs --previous</text>
+<text x="536" y="312" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">Last State / Exit Code</text>
+<text x="536" y="332" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">16장 · 17장</text>
+<line x1="687" y1="147" x2="687" y2="193" stroke="#e03131" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#er)"/>
+<rect x="619" y="195" width="136" height="60" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="687.0" y="226.75" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Running인데 0/1</text>
+<rect x="619" y="265" width="136" height="85" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5"/>
+<text x="687" y="292" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">readinessProbe 실패</text>
+<text x="687" y="312" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">describe pod →</text>
+<text x="687" y="332" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">Unhealthy (16장)</text>
+<line x1="838" y1="147" x2="838" y2="193" stroke="#e03131" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#er)"/>
+<rect x="770" y="195" width="136" height="60" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="838.0" y="226.75" font-size="9.5" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">접속 실패</text>
+<rect x="770" y="265" width="136" height="85" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5"/>
+<text x="838" y="292" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">get endpoints</text>
+<text x="838" y="312" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">selector · targetPort</text>
+<text x="838" y="332" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">03장 · 10장 · 12장</text>
+<text x="460" y="172" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#e03131">여기서 멈췄다면 ↓</text>
+<text x="460" y="390" font-size="14" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">공통 순서:  kubectl get  →  kubectl describe (맨 아래 Events)  →  kubectl logs</text>
+<text x="460" y="412" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">오류 메시지에는 대부분 원인이 그대로 적혀 있습니다. 끝까지 읽으세요.</text>
+</svg>
