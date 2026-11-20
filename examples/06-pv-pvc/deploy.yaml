@@ -1,0 +1,25 @@
+# PVC를 nginx의 웹 문서 디렉터리에 마운트한다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html   # 이 경로에 쓰는 파일은 PV에 저장된다
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: web-data                # 사용할 PVC 이름

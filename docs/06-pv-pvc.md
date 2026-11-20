@@ -1,319 +1,557 @@
-# 06. PV / PVC — Pod가 사라져도 데이터는 남게 하는 저장소
+# 06. PV / PVC — Pod가 사라져도 남는 저장소
 
-## 0. 이 장의 전제
+**이 장을 마치면**
 
-이 장부터는 `00장`에서 설정한 `EDU_CONTEXT`, `NS`, `k()` 함수를 그대로 씁니다
-(`k` = `kubectl --context "$EDU_CONTEXT" -n "$NS"`). 새 셸이라면 00장 6절을 먼저 다시 실행하세요.
+- PV, PVC, StorageClass가 각각 무엇이고 어떻게 연결되는지 설명할 수 있습니다.
+- PVC를 만들어 Pod에 붙이고, Pod가 다시 만들어져도 데이터가 남는 것을 확인합니다.
+- **회수 정책 Retain과 Delete의 차이**를 직접 실습하고, Retain으로 남은 데이터를 되살릴 수 있습니다.
 
-```bash
-k auth can-i create persistentvolumeclaims
-k auth can-i create pods
-```
+---
 
-**이 클러스터의 `nfs-client` StorageClass는 `reclaimPolicy: Retain`입니다.** Retain은 "PVC를
-지워도 실제 데이터(PV)는 보존한다"는 안전장치지만, 반대로 말하면 **PVC를 지워도 PV(클러스터
-범위 자원)가 자동으로 청소되지 않고 남는다**는 뜻입니다. 공유 클러스터에서 실습용으로
-Bound PVC를 계속 만들면 아무도 치우지 않는 PV가 쌓입니다. 그래서 이 장에서는:
+## 1. 왜 필요한가
 
-- **성공적으로 Bound되는 PVC는 실제로 만들지 않습니다.** "정상" 매니페스트는 `--dry-run=server`로
-  API 유효성만 확인합니다.
-- **Pending에서 멈추는(= 끝까지 바인딩되지 않는) PVC**는 실제로 만들어도 안전합니다. PV가 전혀
-  생성되지 않기 때문입니다. 오류 주입은 이쪽만 실제로 실행합니다.
-- 노드·PV·StorageClass 같은 클러스터 범위 자원은 `k`로도 격리되지 않으므로, 이 장은 그런
-  자원을 직접 만들거나 수정하지 않고 **조회만** 합니다.
+[01장](01-pod.md)에서 Pod를 지우고 다시 만들었더니 안에 써 둔 파일이 사라졌습니다. 컨테이너의 파일 시스템은 Pod와 운명을 같이하기 때문입니다.
+웹 서버라면 괜찮지만, 데이터베이스나 업로드된 파일이라면 큰일입니다.
 
-## 1. 개념
+데이터를 **Pod 바깥의 저장소**에 두고, Pod는 그 저장소를 빌려 쓰게 하면 됩니다. 이때 등장하는 것이 PV와 PVC입니다.
 
-컨테이너 안에서 파일을 저장하면, 그 파일은 **컨테이너가 사라질 때 함께 사라집니다.**
-웹 서버라면 상관없지만 DB라면 재앙이죠. 그래서 데이터는 컨테이너 **밖의 저장소**에 두어야 합니다.
+## 2. PV, PVC, StorageClass
 
-쿠버네티스는 저장소를 두 리소스로 나눠서 다룹니다.
+![PV/PVC 구조](../images/06-pv-pvc.svg)
 
-- **PV (PersistentVolume)**: 실제 스토리지 자원. 디스크, NFS, CephFS 같은 "진짜 저장 공간". **네임스페이스가 없는, 클러스터 범위 자원**입니다.
-- **PVC (PersistentVolumeClaim)**: 저장소에 대한 **요청서**. "ReadWriteOnce로 1Gi 필요해요". **네임스페이스에 속합니다.**
+| 이름 | 한 줄 설명 | 비유 |
+|---|---|---|
+| **PV** (PersistentVolume) | 클러스터에 준비된 **저장소 한 조각** | 창고의 사물함 한 칸 |
+| **PVC** (PersistentVolumeClaim) | "이만큼의 저장소가 필요해요"라는 **요청서** | 사물함 신청서 |
+| **StorageClass** | PVC가 들어오면 PV를 **자동으로 만들어 주는** 틀 | 신청서를 받으면 사물함을 새로 설치해 주는 관리실 |
 
-```
-[Pod] --"PVC를 쓸게요"--> [PVC: 1Gi 주세요] --바인딩--> [PV: 실제 NFS/디스크]
-```
+왜 PV와 PVC로 나눴을까요? **역할을 나누기 위해서**입니다. 앱을 만드는 사람은 "1Gi가 필요하다"만 알면 되고,
+그 저장소가 NFS인지 클라우드 디스크인지, 서버 주소가 무엇인지는 몰라도 됩니다. 그런 세부 사항은 PV와 StorageClass 쪽에 있습니다.
 
-왜 둘로 나눌까요? **역할 분리** 때문입니다.
+PV를 준비하는 방법은 두 가지입니다.
 
-> **비유**: PV는 "호텔 방"(인프라 관리자가 준비), PVC는 "투숙객의 예약 요청"(개발자가 작성)입니다.
-> 개발자는 "1인실 하나"라고 요청만 하면 되고, 그 방이 몇 층 어느 호실인지(NFS인지 Ceph인지)는
-> 몰라도 됩니다. 요청과 실제 자원이 연결되는 것을 **바인딩(binding)** 이라고 합니다.
+- **정적 프로비저닝**: 관리자가 PV를 미리 만들어 둔다. PVC가 들어오면 조건에 맞는 PV와 연결된다.
+- **동적 프로비저닝**: PVC가 들어오면 StorageClass가 PV를 그때그때 만든다. **요즘은 대부분 이 방식**이고, 이 장의 실습도 이 방식입니다.
 
-## 2. 정적 프로비저닝의 구조 (개념만)
+### 접근 모드 (Access Mode)
 
-PV를 관리자가 손으로 미리 만들어 두고 PVC가 그걸 집어 쓰는 방식을 **정적 프로비저닝**이라
-합니다. 실무에서는 `hostPath`(노드 하나의 로컬 디스크) 같은 볼륨은 데이터가 노드에 묶여 버려
-거의 쓰지 않고, 보통 아래와 같은 모양의 PV를 NFS/블록스토리지 위에 미리 만들어 둡니다
-(이 장에서는 이 구조를 **실제로 적용하지 않고 설명만** 합니다).
+PVC를 만들 때 "어떻게 쓸 것인지"를 함께 적습니다.
 
-```yaml
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: demo-pv
-spec:
-  capacity:
-    storage: 5Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain   # PVC가 삭제돼도 PV(데이터)는 남긴다
-  nfs:
-    server: nfs.example.invalid                    # 관리자가 준비한 실제 NFS 서버
-    path: /export/demo
-  claimRef:                               # 이 PV를 특정 PVC 전용으로 예약
-    name: demo-pvc
-    namespace: some-namespace
-```
+![접근 모드](../images/06-access-modes.svg)
 
-핵심 구조는 세 가지입니다.
+| 모드 | 줄임 | 의미 |
+|---|---|---|
+| ReadWriteOnce | RWO | **노드 한 대**에서 읽기/쓰기. 가장 흔함 (DB 등) |
+| ReadOnlyMany | ROX | 여러 노드에서 읽기만 |
+| ReadWriteMany | RWX | **여러 노드**에서 동시에 읽기/쓰기. NFS 같은 공유 저장소만 지원 |
+| ReadWriteOncePod | RWOP | **Pod 하나**만 읽기/쓰기 |
 
-1. **실제 스토리지 주소**(`nfs.server`/`path` 등) — PV마다 다른 실제 저장 위치
-2. **`claimRef`** — 이 PV를 특정 PVC 1개 전용으로 미리 엮어 두는 예약
-3. **`persistentVolumeReclaimPolicy`** — `Retain`(보존)인지 `Delete`(PVC 삭제 시 PV도 삭제)인지
+### 회수 정책 (Reclaim Policy)
 
-## 3. 접근 모드 (Access Mode)
+**PVC를 지웠을 때 PV와 그 안의 데이터를 어떻게 할 것인가**를 정하는 값입니다. PV마다 하나씩 가지고 있습니다. 이 장의 핵심입니다.
 
-| 모드 | 약어 | 의미 |
-|------|-----|------|
-| ReadWriteOnce | RWO | **한 노드**만 읽기/쓰기 마운트 가능 |
-| ReadOnlyMany | ROX | 여러 노드가 읽기 전용으로 마운트 |
-| ReadWriteMany | RWX | **여러 노드**가 동시에 읽기/쓰기 (NFS 같은 공유 스토리지 필요) |
+![회수 정책](../images/06-reclaim-policy.svg)
 
-ReadWriteOnce — 한 노드에서만 사용:
+| 정책 | PVC를 지우면 | 장점 | 단점 |
+|---|---|---|---|
+| **Retain** | PV와 데이터가 **남는다** (PV 상태: `Released`) | 실수로 지워도 복구 가능 | 직접 정리해야 함. 방치하면 저장 공간이 계속 쌓임 |
+| **Delete** | PV와 데이터가 **함께 지워진다** | 정리가 자동 | 복구 불가 |
 
-![ReadWriteOnce 다이어그램](../images/06-pv-rwo.png)
+동적으로 만들어진 PV는 **StorageClass에 적힌 회수 정책을 물려받습니다.** 4절과 5절에서 두 정책을 차례로 실습합니다.
 
-ReadWriteMany — 여러 노드의 Pod가 같은 볼륨을 공유:
+## 3. 실습 ① — PVC를 만들어 Pod에 붙이기
 
-![ReadWriteMany 다이어그램](../images/06-pv-rwx.png)
-
-일반 블록 디스크(AWS EBS 등)는 RWO만 되고, 여러 Pod가 공유해야 하면 NFS 같은 RWX 지원 스토리지가
-필요합니다.
-
-## 4. 동적 프로비저닝 — StorageClass와 Pending 진단
-
-매번 관리자가 PV를 손으로 만드는 건 번거롭습니다. **동적 프로비저닝(dynamic provisioning)** 은
-PVC만 내면 **PV가 자동으로 생성**되는 방식이고, 실무의 기본값입니다. 필요한 것은
-**StorageClass**(저장소 등급표)와 그 뒤의 **프로비저너**뿐입니다.
-
-> **Python 비유**: 정적 = 관리자가 미리 만들어 둔 객체 풀에서 꺼내 쓰기,
-> 동적 = 요청이 올 때마다 팩토리 함수가 `new`로 만들어 주기.
-
-### 4-1. 사전 확인 — 실제 StorageClass, 그리고 "없는 이름"이 진짜 없는지 확인
+### 3-1. StorageClass 확인
 
 ```bash
-kubectl --context "$EDU_CONTEXT" get storageclass
+kubectl get storageclass
 ```
 
 ```
-NAME                   PROVISIONER                           RECLAIMPOLICY   AGE
-nfs-client (default)   .../nfs-subdir-external-provisioner   Retain          72d
+NAME                   PROVISIONER                                                     RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+nfs-client (default)   cluster.local/nfs-provisioner-nfs-subdir-external-provisioner   Retain          Immediate           true                   47h
 ```
 
-아래 오류 주입에서 쓸 이름이 **실제로 존재하지 않는지** 먼저 확인합니다 (추측이 아니라 확인).
-`--ignore-not-found`를 쓰면 없을 때도 0으로 종료해 스크립트가 중단되지 않습니다 — 결과가
-비어 있어야 다음 단계로 진행할 수 있습니다.
+- `(default)` 표시가 있는 것이 **기본 StorageClass**입니다. PVC에 StorageClass를 적지 않으면 이것이 쓰입니다.
+- `RECLAIMPOLICY`가 이 StorageClass로 만들어지는 PV의 회수 정책입니다. 이 환경은 `Retain`이지만, 클라우드 환경은 `Delete`인 경우가 많습니다.
 
-```bash
-EXISTING=$(kubectl --context "$EDU_CONTEXT" get storageclass ch06-does-not-exist-sc \
-  --ignore-not-found -o name)
-if [[ -n "$EXISTING" ]]; then
-  echo "경고: ch06-does-not-exist-sc 가 실제로 존재합니다 ($EXISTING). 다른 이름으로 바꿔서 실습하세요." >&2
-else
-  echo "확인됨: ch06-does-not-exist-sc 라는 StorageClass는 없음"
-fi
-```
+> 이름과 정책은 환경마다 다릅니다. `(default)`가 붙은 StorageClass가 하나 있으면 이 장의 실습을 그대로 따라 할 수 있습니다.
 
-```
-확인됨: ch06-does-not-exist-sc 라는 StorageClass는 없음
-```
+### 3-2. PVC 만들기
 
-### 4-2. "정상" 매니페스트 — 실제로 만들지 않고 API 유효성만 확인
-
-([examples/06-pv-pvc/pvc-dynamic.yaml](../examples/06-pv-pvc/pvc-dynamic.yaml))
+([examples/06-pv-pvc/pvc.yaml](../examples/06-pv-pvc/pvc.yaml))
 
 ```yaml
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: ch06-dyn-pvc
+  name: web-data
 spec:
   accessModes:
-    - ReadWriteOnce
+  - ReadWriteOnce            # 한 노드에서 읽기/쓰기
+  resources:
+    requests:
+      storage: 1Gi           # 1Gi 크기의 저장소를 요청
+  # storageClassName을 생략하면 기본(default) StorageClass를 사용한다
+```
+
+```bash
+kubectl apply -f examples/06-pv-pvc/pvc.yaml
+kubectl get pvc
+```
+
+```
+NAME       STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+web-data   Bound    pvc-75a2b39b-66a1-45a0-b7df-7a09834fee69   1Gi        RWO            nfs-client     <unset>                 3s
+```
+
+`STATUS`가 **`Bound`** 이면 PV와 연결됐다는 뜻입니다. `VOLUME` 열이 연결된 PV의 이름입니다.
+우리는 PV를 만든 적이 없는데 PV가 생겼습니다. StorageClass가 자동으로 만든 것입니다(동적 프로비저닝).
+
+```bash
+kubectl get pv | grep -E 'NAME|edu-lab'
+```
+
+```
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM              STORAGECLASS   ...
+pvc-75a2b39b-66a1-45a0-b7df-7a09834fee69   1Gi        RWO            Retain           Bound    edu-lab/web-data   nfs-client     ...
+```
+
+> PV는 네임스페이스에 속하지 않는 리소스라서 `kubectl get pv`는 클러스터의 모든 PV를 보여 줍니다. `grep`으로 우리 네임스페이스 것만 골랐습니다.
+> `CLAIM` 열은 이 PV가 어느 네임스페이스의 어느 PVC와 연결됐는지 알려 줍니다.
+
+### 3-3. Pod에 붙이기
+
+([examples/06-pv-pvc/deploy.yaml](../examples/06-pv-pvc/deploy.yaml))
+
+```yaml
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html   # 이 경로에 쓰는 파일은 PV에 저장된다
+      volumes:
+      - name: data
+        persistentVolumeClaim:
+          claimName: web-data                # 사용할 PVC 이름
+```
+
+[04장](04-configmap.md)에서 본 `volumes` + `volumeMounts` 구조와 같습니다. `configMap` 자리에 `persistentVolumeClaim`이 들어갔을 뿐입니다.
+
+```bash
+kubectl apply -f examples/06-pv-pvc/deploy.yaml
+kubectl rollout status deployment/web
+```
+
+### 3-4. 데이터를 쓰고, Pod를 지워 보기
+
+```bash
+kubectl exec deploy/web -- sh -c 'echo "saved at $(date +%T)" > /usr/share/nginx/html/index.html'
+kubectl exec deploy/web -- wget -qO- http://127.0.0.1/
+kubectl get pod -o wide
+```
+
+```
+saved at 10:28:42
+
+NAME                   READY   STATUS    RESTARTS   AGE   IP               NODE         NOMINATED NODE   READINESS GATES
+web-86c64c4859-kw5jw   1/1     Running   0          20s   192.168.96.105   oks5.dd.io   <none>           <none>
+```
+
+Pod를 지웁니다. Deployment가 새 Pod를 만들 것입니다.
+
+```bash
+kubectl delete pod -l app=web
+kubectl rollout status deployment/web
+kubectl get pod -o wide
+kubectl exec deploy/web -- wget -qO- http://127.0.0.1/
+```
+
+```
+NAME                   READY   STATUS    RESTARTS   AGE   IP                NODE         NOMINATED NODE   READINESS GATES
+web-86c64c4859-zvtqr   1/1     Running   0          3s    192.168.139.117   oks4.dd.io   <none>           <none>
+
+saved at 10:28:42
+```
+
+Pod 이름도, IP도, 심지어 노드도 바뀌었지만 **데이터는 그대로**입니다. 01장과 비교해 보세요.
+
+### 3-5. 실습 ① 정리
+
+```bash
+kubectl delete deployment web
+kubectl delete pvc web-data
+kubectl get pv | grep -E 'NAME|edu-lab'
+```
+
+```
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS     CLAIM              STORAGECLASS   ...
+pvc-75a2b39b-66a1-45a0-b7df-7a09834fee69   1Gi        RWO            Retain           Released   edu-lab/web-data   nfs-client     ...
+```
+
+PVC를 지웠는데 PV가 `Released` 상태로 남아 있습니다(StorageClass의 정책이 `Delete`인 환경이라면 PV가 사라지고 아무것도 나오지 않습니다).
+이것이 바로 회수 정책의 차이입니다. 다음 절에서 하나씩 확인합니다. 남은 PV는 7절에서 한꺼번에 정리합니다.
+
+> **PVC가 지워지지 않고 `Terminating`에서 멈춘다면?** 그 PVC를 쓰는 Pod가 아직 있기 때문입니다.
+> 사용 중인 PVC는 보호되어, Pod가 사라진 뒤에야 실제로 지워집니다. 그래서 위에서도 Deployment를 먼저 지웠습니다.
+
+## 4. 실습 ② — Retain: PVC를 지워도 데이터가 남는다
+
+### 4-1. PVC와 Pod 만들기
+
+PVC 하나와 그 PVC를 `/data`에 마운트한 Pod 하나를 만듭니다. ([examples/06-pv-pvc/retain.yaml](../examples/06-pv-pvc/retain.yaml))
+
+```bash
+kubectl apply -f examples/06-pv-pvc/retain.yaml
+kubectl wait --for=condition=Ready pod/retain-pod --timeout=90s
+```
+
+PV 이름은 자동으로 정해지므로, 변수에 담아 두고 씁니다.
+
+```bash
+PV=$(kubectl get pvc retain-pvc -o jsonpath='{.spec.volumeName}')
+echo $PV
+```
+
+```
+pvc-2d39fb30-9485-473e-9ce1-3d94376f0d2b
+```
+
+### 4-2. 회수 정책을 Retain으로 지정
+
+회수 정책은 PV의 `spec.persistentVolumeReclaimPolicy` 필드입니다. 환경의 기본값이 무엇이든 실습 결과가 같도록 명시적으로 `Retain`으로 설정합니다.
+
+```bash
+kubectl patch pv $PV -p '{"spec":{"persistentVolumeReclaimPolicy":"Retain"}}'
+kubectl get pv $PV
+```
+
+```
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                STORAGECLASS   ...
+pvc-2d39fb30-9485-473e-9ce1-3d94376f0d2b   1Gi        RWO            Retain           Bound    edu-lab/retain-pvc   nfs-client     ...
+```
+
+> 이미 `Retain`이었다면 `patched (no change)`라고 나옵니다. 정상입니다.
+> `kubectl patch`는 리소스의 일부 필드만 바꾸는 명령입니다. **이미 만들어진 PV의 회수 정책은 이렇게 언제든 바꿀 수 있습니다.**
+
+### 4-3. 데이터 쓰기
+
+```bash
+kubectl exec retain-pod -- sh -c 'echo "important data" > /data/memo.txt'
+kubectl exec retain-pod -- cat /data/memo.txt
+```
+
+```
+important data
+```
+
+### 4-4. Pod와 PVC 지우기
+
+누군가 실수로 PVC를 지웠다고 가정합니다.
+
+```bash
+kubectl delete pod retain-pod
+kubectl delete pvc retain-pvc
+kubectl get pvc
+kubectl get pv $PV
+```
+
+```
+No resources found in edu-lab namespace.
+
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS     CLAIM                STORAGECLASS   ...
+pvc-2d39fb30-9485-473e-9ce1-3d94376f0d2b   1Gi        RWO            Retain           Released   edu-lab/retain-pvc   nfs-client     ...
+```
+
+PVC는 사라졌지만 **PV는 `Released` 상태로 남았습니다.** 데이터도 저장소에 그대로 있습니다.
+
+| PV 상태 | 의미 |
+|---|---|
+| `Available` | 아직 아무 PVC와도 연결되지 않음. 쓸 수 있음 |
+| `Bound` | PVC와 연결되어 사용 중 |
+| `Released` | 연결됐던 PVC가 지워짐. 데이터는 남아 있지만 **다른 PVC가 바로 가져갈 수는 없음** |
+
+`Released` PV를 다른 PVC가 자동으로 가져가지 못하게 막아 둔 이유는, 이전 사용자의 데이터가 엉뚱한 곳에 넘어가는 것을 막기 위해서입니다.
+PV는 `CLAIM` 열에 보이는 것처럼 "나는 `edu-lab/retain-pvc`의 것이었다"는 기록(`claimRef`)을 계속 가지고 있습니다.
+
+### 4-5. 데이터 되살리기
+
+남은 PV를 새 PVC에 다시 연결해서 데이터를 꺼내 봅니다. 순서는 세 단계입니다.
+
+**① PV의 예전 연결 기록(`claimRef`)을 지운다** → PV가 `Available`로 돌아옵니다.
+
+```bash
+kubectl patch pv $PV --type json -p '[{"op":"remove","path":"/spec/claimRef"}]'
+kubectl get pv $PV
+```
+
+```
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS      CLAIM   STORAGECLASS   ...
+pvc-2d39fb30-9485-473e-9ce1-3d94376f0d2b   1Gi        RWO            Retain           Available           nfs-client     ...
+```
+
+**② 그 PV를 콕 집어서 요청하는 새 PVC를 만든다.** `volumeName`에 PV 이름을 적으면 새 PV를 만들지 않고 그 PV와 연결됩니다.
+
+```bash
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: recover-pvc
+spec:
+  accessModes:
+  - ReadWriteOnce
+  volumeName: $PV            # 이 PV와 연결해 달라고 지정
   resources:
     requests:
       storage: 1Gi
-  storageClassName: nfs-client     # 실제 존재하는 이름 (4-1에서 확인)
+EOF
+
+kubectl wait --for=jsonpath='{.status.phase}'=Bound pvc/recover-pvc --timeout=60s
+kubectl get pvc recover-pvc
 ```
+
+```
+persistentvolumeclaim/recover-pvc created
+persistentvolumeclaim/recover-pvc condition met
+
+NAME          STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+recover-pvc   Bound    pvc-2d39fb30-9485-473e-9ce1-3d94376f0d2b   1Gi        RWO            nfs-client     <unset>                 12s
+```
+
+> `cat <<EOF | kubectl apply -f -`는 파일을 만들지 않고 YAML을 바로 적용하는 방법입니다. `$PV` 자리에 변수 값이 들어갑니다.
+
+**③ 새 PVC를 쓰는 Pod를 띄워 데이터를 확인한다.** ([examples/06-pv-pvc/recover-pod.yaml](../examples/06-pv-pvc/recover-pod.yaml))
 
 ```bash
-k apply --dry-run=server -f examples/06-pv-pvc/pvc-dynamic.yaml
+kubectl apply -f examples/06-pv-pvc/recover-pod.yaml
+kubectl wait --for=condition=Ready pod/recover-pod --timeout=90s
+kubectl exec recover-pod -- cat /data/memo.txt
 ```
 
 ```
-persistentvolumeclaim/ch06-dyn-pvc created (server dry run)
+important data
 ```
 
-`created (server dry run)` — API 서버가 "이 YAML이면 만들어질 것"이라고 검증까지는 했지만
-**실제로는 아무것도 생성되지 않았습니다.** 이 PVC를 실제로 적용하지 않는 이유는 0절에서
-설명한 Retain 정책 때문입니다.
+PVC를 지웠는데도 데이터를 되찾았습니다. **이것이 Retain을 쓰는 이유입니다.**
 
-### 4-3. 오류 주입 — 존재하지 않는 StorageClass (실제 적용, 안전)
+<details><summary>①을 건너뛰고 ②부터 하면 어떻게 될까?</summary>
 
-([examples/06-pv-pvc/pvc-bad-storageclass.yaml](../examples/06-pv-pvc/pvc-bad-storageclass.yaml))
-
-이번엔 4-1에서 **존재하지 않음을 직접 확인한** 이름을 그대로 씁니다. 이 PVC는 바인딩될 방법이
-없으므로 PV가 전혀 생기지 않아 실제로 적용해도 안전합니다.
-
-```yaml
-spec:
-  storageClassName: ch06-does-not-exist-sc
-```
-
-```bash
-# 조회 오류나 이름 충돌이 있으면 PVC를 생성하지 않는다.
-if existing=$(kubectl --context "$EDU_CONTEXT" get sc ch06-does-not-exist-sc --ignore-not-found -o name) && [[ -z "$existing" ]]; then
-  k apply -f examples/06-pv-pvc/pvc-bad-storageclass.yaml
-else
-  printf '%s\n' '중단: 존재하지 않는 StorageClass임을 확인할 수 없습니다.' >&2
-fi
-sleep 5
-k get pvc ch06-pvc-badsc
-```
+PVC가 `Pending`에서 멈추고, `kubectl describe pvc recover-pvc`의 Events에 이렇게 나옵니다.
 
 ```
-NAME             STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS              AGE
-ch06-pvc-badsc   Pending                                      ch06-does-not-exist-sc    5s
+Warning  FailedBinding  5s  persistentvolume-controller  volume "pvc-2d39fb30-..." already bound to a different claim.
 ```
 
-**관찰**: `Pending`에서 멈춰 있고, 아무리 기다려도 `Bound`가 되지 않습니다.
+PV가 아직 예전 PVC(`retain-pvc`)의 것이라고 기록되어 있기 때문입니다. ①을 실행하면 잠시 뒤 연결됩니다.
 
-```bash
-k describe pvc ch06-pvc-badsc | tail -6
-```
-
-이런 경우 **Events가 아예 비어 있을 수 있습니다** — 존재하지 않는 StorageClass 이름을 지켜보는
-프로비저너 자체가 없기 때문입니다. "Pending인데 Events도 조용하다"는 것 자체가 StorageClass
-이름이 틀렸을 가능성을 의심해야 하는 신호입니다.
-
-### 4-4. 오류 주입 — 이 Pending PVC에 의존하는 Pod도 함께 멈춤
-
-([examples/06-pv-pvc/pod-pending-pvc.yaml](../examples/06-pv-pvc/pod-pending-pvc.yaml))
-
-```yaml
-  volumes:
-  - name: data
-    persistentVolumeClaim:
-      claimName: ch06-pvc-badsc     # 위에서 만든, 영원히 Pending인 PVC
-```
-
-```bash
-k apply -f examples/06-pv-pvc/pod-pending-pvc.yaml
-sleep 5
-k get pod ch06-pod-pending
-```
-
-```
-NAME               READY   STATUS    RESTARTS   AGE
-ch06-pod-pending   0/1     Pending   0          5s
-```
-
-**관찰**: PVC가 아니라 **Pod까지** `Pending`에 걸립니다. 스케줄러가 "볼륨이 아직 준비되지
-않았다"며 아예 노드에 배치하지 않는 것입니다.
-
-### 4-5. 오류 주입 — 아예 존재하지 않는 PVC 이름(오타) 참조
-
-위와는 다른 원인입니다. 이번엔 PVC 자체가 **존재하지도 않는** 경우입니다.
-
-([examples/06-pv-pvc/pod-pvc-badref.yaml](../examples/06-pv-pvc/pod-pvc-badref.yaml))
-
-```yaml
-  volumes:
-  - name: data
-    persistentVolumeClaim:
-      claimName: ch06-pvc-typo   # 이런 이름의 PVC는 만든 적이 없음
-```
-
-```bash
-k apply -f examples/06-pv-pvc/pod-pvc-badref.yaml
-sleep 5
-k get pod ch06-pod-badref
-k describe pod ch06-pod-badref | tail -4
-```
-
-```
-NAME               READY   STATUS              RESTARTS   AGE
-ch06-pod-badref    0/1     Pending            0          5s
-...
-Events:
-  Warning  FailedScheduling  ...  persistentvolumeclaim "ch06-pvc-typo" not found
-```
-
-**관찰**: 이번에도 `Pending`입니다. 차이는 **상태 이름이 아니라 Events**에 PVC를
-**찾지 못했다**는 메시지가 명확히 찍힙니다. 4-4(PVC는 있지만 안 묶임)와 4-5(PVC 자체가 없음)는
-같은 상태로 보일 수 있습니다.
-
-<details><summary>힌트와 복구 — 두 증상 구분하기</summary>
-
-| 증상 | 원인 | 확인 명령 |
-|---|---|---|
-| Pod가 `Pending`, PVC가 `Pending` | StorageClass가 없거나 틀림 | `k get pvc <이름>` → `k get sc <그 PVC의 storageClassName>` |
-| Pod가 `Pending`, Events에 `persistentvolumeclaim ... not found` | claimName 자체가 틀림(오타) | `k get pvc` 로 실제 존재하는 PVC 이름과 대조 |
-
-둘 다 **실제로 바인딩된 적이 없으므로** 정리는 그냥 지우면 됩니다 — 남는 PV가 없습니다.
-
-```bash
-k delete pod ch06-pod-pending ch06-pod-badref --ignore-not-found
-k delete pvc ch06-pvc-badsc --ignore-not-found
-k get pvc
-```
 </details>
 
-## 5. 기능 확인 — emptyDir로 "앱이 다시 뜨는가"만 복구
+## 5. 실습 ③ — Delete: PVC를 지우면 함께 사라진다
 
-실제 Bound PVC는 만들지 않기로 했으므로, 이 장에서 "데이터가 살아남는지"는 테스트하지
-않습니다. 대신 **앱이 정상적으로 뜨는지**만 emptyDir로 빠르게 복구/확인합니다
-(**영속성 테스트가 아닙니다** — 7장에서 emptyDir과 실제 PVC의 데이터 보존 차이를
-자세히 비교합니다).
-
-([examples/06-pv-pvc/pod-recovery-emptydir.yaml](../examples/06-pv-pvc/pod-recovery-emptydir.yaml))
+같은 과정을 회수 정책만 `Delete`로 바꿔서 반복합니다. ([examples/06-pv-pvc/delete.yaml](../examples/06-pv-pvc/delete.yaml))
 
 ```bash
-k apply -f examples/06-pv-pvc/pod-recovery-emptydir.yaml
-k wait --for=condition=Ready pod/ch06-pod-recovery --timeout=60s
-k exec ch06-pod-recovery -- sh -c "echo ok > /data/test.txt && cat /data/test.txt"
+kubectl apply -f examples/06-pv-pvc/delete.yaml
+kubectl wait --for=condition=Ready pod/delete-pod --timeout=90s
+
+PV2=$(kubectl get pvc delete-pvc -o jsonpath='{.spec.volumeName}')
+kubectl patch pv $PV2 -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'
+kubectl get pv $PV2
 ```
 
 ```
-ok
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM                STORAGECLASS   ...
+pvc-84955ec4-150c-48a2-8242-79c05878a6e0   1Gi        RWO            Delete           Bound    edu-lab/delete-pvc   nfs-client     ...
 ```
 
-Pod가 `Running`이 되고 파일을 쓰고 읽을 수 있으면 **앱 기능은 정상**입니다. (데이터 보존
-여부를 확인하고 싶다면 6장의 다이어그램처럼 실제 네트워크 스토리지가 필요하며, 이 공유
-클러스터에서는 PV가 남지 않도록 실제로 만들지 않습니다.)
-
-## 6. 실습 정리
+데이터를 쓰고, Pod와 PVC를 지웁니다.
 
 ```bash
-k delete pod ch06-pod-pending ch06-pod-badref ch06-pod-recovery --ignore-not-found
-k delete pvc ch06-pvc-badsc --ignore-not-found
-k get pvc
+kubectl exec delete-pod -- sh -c 'echo "temporary data" > /data/memo.txt'
+kubectl exec delete-pod -- cat /data/memo.txt
+
+kubectl delete pod delete-pod
+kubectl delete pvc delete-pvc
+sleep 5
+kubectl get pv $PV2
 ```
+
+```
+temporary data
+
+Error from server (NotFound): persistentvolumes "pvc-84955ec4-150c-48a2-8242-79c05878a6e0" not found
+```
+
+**PV 자체가 사라졌습니다.** 저장소에 있던 `memo.txt`도 함께 지워졌습니다. 되살릴 방법이 없습니다.
+
+### 두 정책 비교
+
+| | Retain (실습 ②) | Delete (실습 ③) |
+|---|---|---|
+| PVC 삭제 후 PV | `Released` 상태로 남음 | 사라짐 |
+| 데이터 | 남음 → 되살릴 수 있음 | 삭제됨 |
+| 정리 | 사람이 직접 | 자동 |
+| 어울리는 곳 | 운영 DB처럼 잃으면 안 되는 데이터 | 캐시, 테스트, 언제든 다시 만들 수 있는 데이터 |
+
+> **실무 팁**: 중요한 데이터가 담긴 PVC를 지우기 전에는 `kubectl get pv`로 `RECLAIM POLICY`부터 확인하세요.
+> `Delete`라면 4-2의 `kubectl patch`로 `Retain`으로 바꿔 둔 뒤 작업하면 안전합니다.
+
+## 6. 고장 내고 고쳐 보기 — PVC가 Pending에서 멈춘다
+
+```bash
+kubectl apply -f examples/06-pv-pvc/broken.yaml
+sleep 5
+kubectl get pvc,pod
+```
+
+```
+NAME                                STATUS    VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/broken-pvc    Pending                                                                        fast-ssd       <unset>                 6s
+persistentvolumeclaim/recover-pvc   Bound     pvc-2d39fb30-9485-473e-9ce1-3d94376f0d2b   1Gi        RWO            nfs-client     <unset>                 47s
+
+NAME              READY   STATUS    RESTARTS   AGE
+pod/broken-pod    0/1     Pending   0          6s
+pod/recover-pod   1/1     Running   0          23s
+```
+
+PVC도 `Pending`, Pod도 `Pending`입니다. 둘 다 `describe`로 Events를 확인해 보세요.
+
+```bash
+kubectl describe pod broken-pod
+kubectl describe pvc broken-pvc
+```
+
+<details><summary>원인과 해결 방법</summary>
+
+**Pod의 Events**
+
+```
+Warning  FailedScheduling  6s  default-scheduler  0/5 nodes are available: pod has unbound immediate PersistentVolumeClaims. ...
+```
+
+Pod가 쓰려는 PVC가 아직 PV와 연결되지 않아서(`unbound`) 시작할 수 없다는 뜻입니다. Pod는 피해자이고, 원인은 PVC에 있습니다.
+
+**PVC의 Events**
+
+```
+Warning  ProvisioningFailed  6s (x2 over 6s)  persistentvolume-controller  storageclass.storage.k8s.io "fast-ssd" not found
+```
+
+`fast-ssd`라는 StorageClass가 없습니다. `kubectl get storageclass`로 실제로 있는 이름을 확인합니다.
+
+PVC의 `storageClassName`은 **만든 뒤에는 바꿀 수 없습니다.** 지우고 올바른 값으로 다시 만들어야 합니다.
+여기서는 실습용 리소스이므로 지우기만 합니다.
+
+```bash
+kubectl delete -f examples/06-pv-pvc/broken.yaml
+```
+
+</details>
+
+**PVC가 Pending일 때 확인할 것**
+
+| Events 메시지 | 원인 |
+|---|---|
+| `storageclass ... not found` | `storageClassName` 오타 |
+| `no persistent volumes available for this claim and no storage class is set` | 기본 StorageClass가 없고, 맞는 PV도 없음 |
+| `already bound to a different claim` | `volumeName`으로 지정한 PV가 다른 PVC의 것 (4-5 참고) |
+| `waiting for first consumer to be created before binding` | 오류가 아님. Pod가 생길 때까지 기다리는 StorageClass 설정(`WaitForFirstConsumer`) |
+
+## 7. 정리
+
+```bash
+kubectl delete pod recover-pod
+kubectl delete pvc recover-pvc
+kubectl get pv | grep -E 'NAME|edu-lab'
+```
+
+```
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS     CLAIM                 STORAGECLASS   ...
+pvc-2d39fb30-9485-473e-9ce1-3d94376f0d2b   1Gi        RWO            Retain           Released   edu-lab/recover-pvc   nfs-client     ...
+pvc-75a2b39b-66a1-45a0-b7df-7a09834fee69   1Gi        RWO            Retain           Released   edu-lab/web-data      nfs-client     ...
+```
+
+`Retain` 정책의 PV는 이렇게 **`Released` 상태로 계속 남습니다.** 자동으로 지워지지 않으니 직접 정리해야 합니다.
+더 이상 필요 없는 PV는 회수 정책을 `Delete`로 바꿔 주면, 저장소의 데이터와 PV가 함께 정리됩니다.
+
+```bash
+# edu-lab 네임스페이스의 PVC와 연결됐던 PV를 모두 찾아 Delete 정책으로 바꾼다
+for pv in $(kubectl get pv -o jsonpath='{range .items[?(@.spec.claimRef.namespace=="edu-lab")]}{.metadata.name}{"\n"}{end}'); do
+  kubectl patch pv $pv -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'
+done
+
+sleep 10
+kubectl get pv | grep -E 'NAME|edu-lab'
+```
+
+```
+NAME   CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM   STORAGECLASS   ...
+```
+
+> 네임스페이스 이름이 `edu-lab`이 아니라면 명령 안의 `edu-lab`을 바꿔서 실행하세요.
+> `kubectl delete pv 이름`으로 PV만 지울 수도 있지만, 그러면 쿠버네티스의 기록만 사라지고 **실제 저장소의 데이터는 남습니다.**
+
+## 8. 알아 두면 좋은 것
+
+**정적 프로비저닝의 PV는 이렇게 생겼습니다.** 관리자가 직접 PV를 만들 때 쓰는 YAML입니다. 회수 정책이 PV의 필드라는 것을 확인할 수 있습니다.
+
+```yaml
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: manual-pv
+spec:
+  capacity:
+    storage: 1Gi
+  accessModes:
+  - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain     # 회수 정책
+  nfs:                                      # 실제 저장소 정보
+    server: 10.0.0.10
+    path: /exports/data
+```
+
+**StorageClass의 회수 정책**은 `reclaimPolicy` 필드에 적습니다. 이 StorageClass로 만들어지는 PV가 이 값을 물려받습니다. 생략하면 `Delete`입니다.
+
+```yaml
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: example
+provisioner: example.com/provisioner
+reclaimPolicy: Retain
+```
+
+**`emptyDir`** 은 PVC 없이 쓰는 임시 볼륨입니다. Pod와 함께 생기고 Pod가 지워지면 사라집니다. 같은 Pod의 컨테이너끼리 파일을 주고받을 때 씁니다.
+
+## 핵심 요약
+
+- PVC는 저장소 요청서, PV는 실제로 할당된 저장소, StorageClass는 PV를 자동으로 만드는 틀이다.
+- Pod는 PVC 이름으로 저장소를 쓴다. Pod가 다시 만들어져도 데이터는 남는다.
+- 회수 정책은 PVC를 지웠을 때 PV와 데이터의 운명을 정한다.
+  - **Retain**: PV가 `Released`로 남는다. `claimRef`를 지우고 새 PVC에 연결하면 데이터를 되살릴 수 있다. 정리는 수동.
+  - **Delete**: PV와 데이터가 함께 지워진다.
+- 회수 정책은 StorageClass에서 물려받고, `kubectl patch pv`로 바꿀 수 있다.
+- PVC가 `Pending`이면 `kubectl describe pvc`의 Events를 본다.
 
 ## 확인 문제
 
-1. PV와 PVC의 역할을 한 줄씩으로 구분하면?
-2. 이 클러스터에서 "성공적으로 Bound되는" PVC를 실습에서 실제로 만들지 않는 이유는?
-3. 같은 `Pending` Pod에서 StorageClass 오타와 claimName 오타를 어떤 근거로 구분할까?
+1. PV와 PVC의 차이는 무엇인가요?
+2. PV를 직접 만들지 않았는데 PVC가 `Bound`가 됐습니다. PV는 누가 만들었나요?
+3. 회수 정책이 `Retain`인 PV에 연결된 PVC를 지우면 PV는 어떤 상태가 되나요? 이 PV를 새 PVC에 연결하려면 무엇을 해야 하나요?
+4. 운영 중인 DB의 PVC를 지워야 하는 작업이 있습니다. 작업 전에 무엇을 확인하고 어떻게 대비하면 좋을까요?
+5. Pod가 `Pending`이고 Events에 `pod has unbound immediate PersistentVolumeClaims`가 나옵니다. 다음에 무엇을 확인해야 하나요?
 
 <details><summary>정답 보기</summary>
 
-1. PV = 실제 스토리지 자원(공급, 클러스터 범위), PVC = 필요한 스토리지에 대한 요청서(수요, 네임스페이스 범위). 둘이 바인딩되어 사용된다.
-2. `nfs-client`의 `reclaimPolicy`가 `Retain`이라 PVC를 지워도 PV(클러스터 범위 자원)가 자동 삭제되지 않고 남기 때문. 공유 클러스터에 치우지 않는 PV가 쌓이는 것을 막기 위해 "정상" 매니페스트는 dry-run으로만 검증한다.
-3. 전자는 StorageClass가 없거나 이름이 틀려 PVC 자체가 바인딩되지 못하는 경우, 후자는 PVC는 정상인데 Pod가 참조하는 `claimName` 자체가 오타라 그 이름의 PVC를 찾지 못하는 경우다.
+1. PV는 클러스터에 준비된 실제 저장소 조각이고, PVC는 그 저장소를 쓰겠다는 요청서입니다. Pod는 PVC를 통해 PV를 사용합니다.
+2. StorageClass(와 그 뒤의 프로비저너)가 자동으로 만들었습니다. 이를 동적 프로비저닝이라고 합니다.
+3. `Released` 상태가 됩니다. PV의 `spec.claimRef`를 지워 `Available`로 만든 뒤, `volumeName`으로 그 PV를 지정한 PVC를 만들면 연결됩니다.
+4. `kubectl get pv`로 해당 PV의 회수 정책을 확인합니다. `Delete`라면 `kubectl patch pv`로 `Retain`으로 바꿔 두고, 가능하면 백업도 받아 둡니다.
+5. Pod가 사용하는 PVC의 상태와 Events(`kubectl describe pvc`)를 확인합니다. 원인은 PVC 쪽에 있습니다.
 </details>
 
 ---

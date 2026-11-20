@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: web-data
+spec:
+  accessModes:
+  - ReadWriteOnce            # 한 노드에서 읽기/쓰기
+  resources:
+    requests:
+      storage: 1Gi           # 1Gi 크기의 저장소를 요청
+  # storageClassName을 생략하면 기본(default) StorageClass를 사용한다
