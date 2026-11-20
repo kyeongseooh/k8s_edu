@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 400" width="920" height="400">
+<defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="sa" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151"/></marker><marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e03131"/></marker><marker id="sr" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#e03131"/></marker><marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#22a05a"/></marker><marker id="sg" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#22a05a"/></marker><marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="sb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#3b82f6"/></marker><marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f08c00"/></marker><marker id="so" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#f08c00"/></marker><marker id="ep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="sp" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#7c3aed"/></marker></defs>
+<rect width="920" height="400" fill="#ffffff"/>
+<text x="460.0" y="30" font-size="18" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">GitOps: Git에 적힌 것이 곧 클러스터의 모습</text>
+<rect x="20" y="60" width="420" height="150" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="230.0" y="80" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">지금까지: 사람이 직접 반영</text>
+<rect x="40" y="105" width="110" height="60" rx="8" fill="#f1eafd" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="95.0" y="138.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">사람</text>
+<rect x="310" y="105" width="110" height="60" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="365.0" y="138.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">클러스터</text>
+<line x1="150" y1="135" x2="308" y2="135" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<text x="229.0" y="126.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">kubectl apply / edit / scale</text>
+<text x="230" y="190" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#e03131">누가, 언제, 왜 바꿨는지 남지 않는다</text>
+<rect x="460" y="60" width="440" height="150" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="680.0" y="80" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">GitOps: Git만 고친다</text>
+<rect x="475" y="105" width="90" height="60" rx="8" fill="#f1eafd" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="520.0" y="138.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">사람</text>
+<rect x="610" y="105" width="100" height="60" rx="8" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="660.0" y="131.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Git</text>
+<text x="660.0" y="148.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">원하는 상태</text>
+<rect x="790" y="105" width="95" height="60" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="837.5" y="138.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">클러스터</text>
+<line x1="565" y1="135" x2="608" y2="135" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<text x="586.5" y="126.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">commit</text>
+<line x1="710" y1="135" x2="788" y2="135" stroke="#3b82f6" stroke-width="1.8" marker-end="url(#eb)"/>
+<text x="749.0" y="126.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#3b82f6">Argo CD</text>
+<text x="680" y="190" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#22a05a">변경 이력 = Git 이력. 되돌리기 = git revert</text>
+<rect x="20" y="235" width="880" height="145" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="460.0" y="255" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Argo CD가 계속 하는 일</text>
+<rect x="45" y="280" width="200" height="75" rx="8" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="145.0" y="314.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Git 저장소</text>
+<text x="145.0" y="331.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">&quot;replicas: 3&quot;</text>
+<rect x="360" y="280" width="200" height="75" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5"/>
+<text x="460.0" y="314.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Argo CD</text>
+<text x="460.0" y="331.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">둘을 비교한다</text>
+<rect x="675" y="280" width="200" height="75" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="775.0" y="314.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">클러스터</text>
+<text x="775.0" y="331.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">&quot;지금 Pod 2개&quot;</text>
+<line x1="358" y1="317" x2="247" y2="317" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<text x="302.5" y="308.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">읽기</text>
+<line x1="562" y1="305" x2="673" y2="305" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<text x="617.5" y="296.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">관찰</text>
+<line x1="562" y1="335" x2="673" y2="335" stroke="#e03131" stroke-width="1.8" marker-end="url(#er)"/>
+<text x="617.5" y="352.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#e03131">다르면 맞춘다 (Sync)</text>
+</svg>
