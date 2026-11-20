@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.27-alpine
+    resources:
+      requests:              # 예약: 이만큼은 보장해 달라 (스케줄러가 이 값으로 노드를 고른다)
+        cpu: 100m            #   0.1 코어
+        memory: 64Mi
+      limits:                # 상한: 이 이상은 쓰지 못한다
+        cpu: 200m            #   0.2 코어
+        memory: 128Mi

@@ -1,0 +1,25 @@
+# 고장 실습: CPU를 0.5코어 예약하려고 했는데...
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: calc
+  template:
+    metadata:
+      labels:
+        app: calc
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        resources:
+          requests:
+            cpu: 500             # 단위 실수! 500m(0.5코어)가 아니라 500코어를 요청한다
+            memory: 64Mi
+          limits:
+            cpu: 500
+            memory: 128Mi

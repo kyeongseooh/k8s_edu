@@ -1,0 +1,22 @@
+# 메모리를 끝없이 쓰려는 Pod. 상한(64Mi)을 넘는 순간 강제 종료된다
+apiVersion: v1
+kind: Pod
+metadata:
+  name: mem-hog
+spec:
+  containers:
+  - name: app
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args:                        # 문자열을 계속 두 배로 늘려서 메모리를 점점 더 많이 쓴다
+    - |
+      echo "start: allocating memory..."
+      a=0123456789abcdef
+      while true; do a=$a$a; done
+    resources:
+      requests:
+        cpu: 50m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 64Mi
