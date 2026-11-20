@@ -4,18 +4,6 @@ Service는 Pod들의 안정적인 **내부 주소**, Ingress는 HTTP 요청의 *
 
 [세 개의 백엔드](../examples/10-ingress/deploysvc.yaml)는 경로 이름을 응답하는 nginx와 ClusterIP Service다. [Ingress 예제](../examples/10-ingress/ingress.yaml)의 `ingressClassName: nginx`는 이 규칙의 담당자를, `backend.service.port.number`는 **컨테이너 포트가 아니라 Service의 포트**를 가리킨다. `rewrite-target: /`은 이 컨트롤러가 백엔드에 원래 경로 대신 `/`를 요청하게 한다.
 
-## 준비: 설치나 DNS 변경 없이 교육용 입구 확인
-
-전제는 ingress-nginx가 설치되어 있고, 교육생이 자신의 namespace에 Ingress를 만들 수 있는 것이다. 컨트롤러 Service의 **조회** 권한이 없다면 강사에게 해당 Service의 ClusterIP와 HTTP 포트를 받는다. 공유 컨트롤러, 노드, 외부 DNS는 수정하지 않는다. 여기서 검증하는 것은 **클러스터 내부에서 컨트롤러를 지난 HTTP 경로**이지 인터넷 접속이나 TLS 인증서가 아니다.
-
-```bash
-kubectl --context "$EDU_CONTEXT" get ingressclass nginx
-CTRL_IP=$(kubectl --context "$EDU_CONTEXT" -n ingress-nginx get svc ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')
-LAB_HOST="${NS}.invalid"
-printf '요청 대상: %s:80, 헤더: Host: %s\n' "$CTRL_IP" "$LAB_HOST"
-```
-
-강사가 다른 이름/포트로 설치했다면 그 값을 사용한다. `.invalid`는 교육생끼리 분리된 테스트용 이름이다. 주소창 대신 HTTP `Host` 헤더를 직접 보내기 때문에 DNS 등록이 필요 없다.
 
 ## 과제: 특정 경로만 장애
 
