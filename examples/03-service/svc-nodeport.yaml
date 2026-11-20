@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-nodeport
+spec:
+  type: NodePort           # 모든 노드의 특정 포트를 열어 클러스터 밖에서 접속할 수 있게 한다
+  selector:
+    app: web
+  ports:
+  - port: 80
+    targetPort: 80
+    # nodePort: 30080      # 생략하면 30000~32767 중 빈 포트가 자동으로 배정된다

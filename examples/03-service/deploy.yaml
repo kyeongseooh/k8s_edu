@@ -1,0 +1,23 @@
+# 요청을 받으면 "자기 Pod 이름"을 응답하는 웹 서버 3대
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        command: ["sh", "-c"]
+        args:                    # 첫 페이지에 자기 호스트네임(=Pod 이름)을 적고 nginx 실행
+        - echo "$(hostname)" > /usr/share/nginx/html/index.html && exec nginx -g 'daemon off;'
+        ports:
+        - containerPort: 80
