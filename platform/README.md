@@ -17,9 +17,7 @@
 | [05. Keycloak과 kubectl](docs/05-keycloak-kubectl.md) | 로그인과 권한 | Keycloak 계정으로 kubectl 로그인, 그룹별 권한 |
 | [06. Prometheus · Grafana](docs/06-monitoring.md) | 모니터링 | 쿠버네티스와 Airflow 지표 조회, 대시보드, 알림 |
 | [07. MinIO](docs/07-minio.md) | S3 호환 저장소 | 버킷과 객체 다루기, Pod에서 S3 사용 |
-| 08. Kubeflow | ML 플랫폼 | Notebook, Pipeline 실행 |
-
-링크가 없는 장은 작성 중입니다.
+| [08. Kubeflow](docs/08-kubeflow.md) | ML 플랫폼 | Keycloak 로그인, Notebook 만들고 쓰기 |
 
 각 장은 기초 과정과 같은 순서로 진행합니다: **왜 필요한가 → 그림으로 보는 개념 → 따라 하는 실습 → 고장 내고 고치기 → 정리**.
 
