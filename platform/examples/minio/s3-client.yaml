@@ -1,0 +1,22 @@
+# S3 명령을 실행해 볼 Pod. 접속 정보는 Secret에서 환경변수로 받는다
+apiVersion: v1
+kind: Pod
+metadata:
+  name: s3-client
+spec:
+  terminationGracePeriodSeconds: 1
+  containers:
+  - name: aws
+    image: amazon/aws-cli:2.17.0
+    command: ["sleep", "3600"]
+    envFrom:
+    - secretRef:
+        name: s3-cred                 # AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+    env:
+    - name: AWS_ENDPOINT_URL          # S3 요청을 보낼 주소 (AWS가 아니라 MinIO)
+      value: http://10.0.1.185:9555
+    - name: AWS_DEFAULT_REGION
+      value: us-east-1
+    resources:
+      requests: {cpu: 50m, memory: 64Mi}
+      limits: {cpu: 500m, memory: 256Mi}
