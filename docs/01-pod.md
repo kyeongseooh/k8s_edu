@@ -72,11 +72,14 @@ NAME   READY   STATUS              RESTARTS   AGE
 web    0/1     ContainerCreating   0          0s
 ```
 
-몇 초 뒤 다시 실행하면 `Running`으로 바뀝니다.
+이미지를 내려받고 컨테이너를 만드는 중입니다. 준비될 때까지 기다렸다가 다시 조회합니다.
 
 ```bash
+kubectl wait --for=condition=Ready pod/web --timeout=60s
 kubectl get pod -o wide
 ```
+
+> `kubectl wait --for=condition=Ready`는 Pod가 준비될 때까지 기다려 주는 명령입니다. `get`을 반복해서 치는 대신 씁니다.
 
 ```
 NAME   READY   STATUS    RESTARTS   AGE   IP               NODE         NOMINATED NODE   READINESS GATES
@@ -244,8 +247,6 @@ kubectl exec web -- wget -qO- http://127.0.0.1/ | grep title
 | Pod가 죽으면 누가 다시 띄워 주나? | [02장 Deployment](02-deployment.md) |
 | IP가 바뀌는데 어떻게 고정된 주소로 접속하나? | [03장 Service](03-service.md) |
 | 파일이 사라지면 데이터는 어디에 저장하나? | [06장 PV/PVC](06-pv-pvc.md) |
-
-> `kubectl wait --for=condition=Ready`는 Pod가 준비될 때까지 기다려 주는 명령입니다. `get`을 반복해서 치는 대신 씁니다.
 
 ## 5. 실습 ③ — Label: 리소스에 붙이는 꼬리표
 
