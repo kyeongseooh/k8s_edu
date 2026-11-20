@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 380" width="900" height="380">
+<defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="sa" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151"/></marker><marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e03131"/></marker><marker id="sr" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#e03131"/></marker><marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#22a05a"/></marker><marker id="sg" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#22a05a"/></marker><marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="sb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#3b82f6"/></marker><marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f08c00"/></marker><marker id="so" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#f08c00"/></marker><marker id="ep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="sp" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#7c3aed"/></marker></defs>
+<rect width="900" height="380" fill="#ffffff"/>
+<text x="450.0" y="30" font-size="18" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Deployment와 DaemonSet: 개수를 정하는 기준이 다르다</text>
+<rect x="20" y="55" width="420" height="305" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="230.0" y="75" font-size="14" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Deployment — &quot;총 3개&quot;</text>
+<rect x="40" y="100" width="120" height="170" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="100.0" y="120" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 1</text>
+<rect x="60" y="135" width="80" height="45" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="100.0" y="160.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<rect x="60" y="195" width="80" height="45" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="100.0" y="220.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<rect x="170" y="100" width="120" height="170" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="230.0" y="120" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 2</text>
+<rect x="190" y="135" width="80" height="45" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="230.0" y="160.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<rect x="300" y="100" width="120" height="170" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="360.0" y="120" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 3</text>
+<text x="230" y="300" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">스케줄러가 알아서 배치한다</text>
+<text x="230" y="320" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">어떤 노드에는 2개, 어떤 노드에는 0개일 수 있다</text>
+<rect x="460" y="55" width="420" height="305" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="670.0" y="75" font-size="14" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">DaemonSet — &quot;노드마다 1개&quot;</text>
+<rect x="480" y="100" width="120" height="170" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="540.0" y="120" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 1</text>
+<rect x="500" y="135" width="80" height="45" rx="8" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="540.0" y="160.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<rect x="610" y="100" width="120" height="170" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="670.0" y="120" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 2</text>
+<rect x="630" y="135" width="80" height="45" rx="8" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="670.0" y="160.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<rect x="740" y="100" width="120" height="170" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="800.0" y="120" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">새 노드</text>
+<rect x="760" y="135" width="80" height="45" rx="8" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="800.0" y="160.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<text x="670" y="300" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">모든(조건에 맞는) 노드에 정확히 하나씩</text>
+<text x="670" y="320" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">노드가 추가되면 자동으로 하나 더 생긴다</text>
+</svg>
