@@ -1,0 +1,21 @@
+# job-broken.yaml을 고친 버전: 입력 파일을 먼저 준비한다
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: report
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: report
+        image: busybox:1.36
+        command: ["sh", "-c"]
+        args:
+        - |
+          set -e                         # 명령이 하나라도 실패하면 즉시 중단한다 (실패를 실패로 알리기 위해)
+          mkdir -p /data && printf 'a,1\nb,2\nc,3\n' > /data/input.csv
+          echo "report: reading input..."
+          wc -l /data/input.csv
+          echo "report: done"

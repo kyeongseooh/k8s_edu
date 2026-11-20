@@ -1,0 +1,20 @@
+# 고장 실습: 입력 파일을 읽어 처리하는 배치인데...
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: report
+spec:
+  backoffLimit: 2                # 실패하면 2번까지 다시 시도한다
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: report
+        image: busybox:1.36
+        command: ["sh", "-c"]
+        args:
+        - |
+          set -e                         # 명령이 하나라도 실패하면 즉시 중단한다 (실패를 실패로 알리기 위해)
+          echo "report: reading input..."
+          wc -l /data/input.csv          # 이 파일이 없다
+          echo "report: done"

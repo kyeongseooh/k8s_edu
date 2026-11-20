@@ -1,0 +1,14 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: batch-work
+spec:
+  completions: 6                 # 성공한 Pod가 6개가 될 때까지 실행한다
+  parallelism: 2                 # 동시에 2개씩 실행한다
+  template:
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: worker
+        image: busybox:1.36
+        command: ["sh", "-c", "echo \"$(hostname) working...\"; sleep 8; echo done"]

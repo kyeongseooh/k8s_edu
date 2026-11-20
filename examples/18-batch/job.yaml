@@ -1,0 +1,19 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: sum
+spec:
+  template:                      # 실행할 Pod의 틀
+    spec:
+      restartPolicy: Never       # Job의 Pod는 Never 또는 OnFailure만 쓸 수 있다
+      containers:
+      - name: calc
+        image: busybox:1.36
+        command: ["sh", "-c"]
+        args:                    # 1부터 100까지 더하고 끝난다
+        - |
+          echo "start"
+          sum=0; i=1
+          while [ $i -le 100 ]; do sum=$((sum+i)); i=$((i+1)); done
+          sleep 5
+          echo "1 + 2 + ... + 100 = $sum"
