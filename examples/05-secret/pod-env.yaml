@@ -1,0 +1,19 @@
+# Secret 값을 환경변수로 넣기 (ConfigMap과 필드 이름만 다르다)
+apiVersion: v1
+kind: Pod
+metadata:
+  name: secret-env
+spec:
+  containers:
+  - name: app
+    image: busybox:1.36
+    command: ["sleep", "3600"]
+    env:
+    - name: PASSWORD               # key 하나만 골라서
+      valueFrom:
+        secretKeyRef:              # configMapKeyRef -> secretKeyRef
+          name: db-secret
+          key: DB_PASSWORD
+    envFrom:                       # 모든 key를 한꺼번에
+    - secretRef:                   # configMapRef -> secretRef
+        name: db-secret

@@ -1,297 +1,295 @@
-# 05. Secret — 비밀번호, 토큰 같은 민감한 값 관리하기
+# 05. Secret — 비밀번호 같은 민감한 값 다루기
 
-## 1. 개념
+**이 장을 마치면**
 
-**Secret(시크릿)** 은 ConfigMap과 거의 같은데, **민감한 데이터 전용**입니다.
+- ConfigMap과 Secret의 차이를 설명할 수 있습니다.
+- Secret을 만들고 환경변수와 파일로 Pod에 넣을 수 있습니다.
+- "base64는 암호화가 아니다"가 무슨 뜻인지 직접 확인합니다.
 
-- 비밀번호, API 토큰, 인증서 키 같은 값을 저장
-- 값은 **base64로 인코딩**되어 저장됨
-- Pod에 주입하는 방법은 ConfigMap과 동일 (환경변수 / 파일 마운트)
-- 최대 크기 1MB
+---
+
+## 1. ConfigMap과 무엇이 다른가
+
+**Secret(시크릿)** 은 비밀번호, API 키, 인증서처럼 **노출되면 안 되는 값**을 담는 리소스입니다.
+쓰는 방법은 [04장 ConfigMap](04-configmap.md)과 거의 같습니다. 필드 이름 몇 개만 다릅니다.
 
 | | ConfigMap | Secret |
 |---|---|---|
-| 용도 | 일반 설정 | 비밀번호, 토큰, 인증서 |
-| 저장 형태 | 평문 | base64 인코딩 |
+| 담는 값 | 일반 설정 (모드, 주소, 설정 파일) | 민감한 값 (비밀번호, 토큰, 인증서) |
+| 저장된 모습 | 평문 | base64로 인코딩 |
+| `kubectl describe` | 값이 그대로 보임 | 값 대신 크기(bytes)만 보임 |
+| key 하나를 환경변수로 | `configMapKeyRef` | `secretKeyRef` |
+| 전체를 환경변수로 | `configMapRef` | `secretRef` |
+| 볼륨으로 | `configMap: { name: ... }` | `secret: { secretName: ... }` |
 
-> **중요한 주의**: base64는 **암호화가 아니라 인코딩**입니다. Python으로 치면
-> `base64.b64decode(...)` 한 줄로 원문이 나옵니다. 그런데 왜 Secret을 쓸까요?
-> ① ConfigMap과 "민감/비민감"을 구분해서 권한(RBAC, 11장)을 다르게 걸 수 있고,
-> ② etcd 저장 시 암호화(encryption at rest)를 켤 수 있고,
-> ③ 로그·화면에 실수로 노출될 확률이 줄기 때문입니다.
-> 어쨌든 "Secret 조회 권한 = 비밀번호 열람 권한"이라는 점은 꼭 기억하세요.
+Secret을 따로 둔 이유는 **다르게 취급하기 위해서**입니다. ConfigMap은 여러 사람이 봐도 되지만 Secret은 조회 권한을 좁게 주고([11장 RBAC](11-rbac.md)),
+화면에 값이 바로 찍히지 않게 하고, 노드에서는 디스크가 아닌 메모리에만 올려 둡니다.
 
-## 2. 실습 준비
+## 2. base64는 암호화가 아니다
 
-00장에서 준비된 `$NS`, `k()`를 그대로 씁니다. 네임스페이스를 새로 만들거나 지우지 않습니다.
+![base64는 암호화가 아니다](../images/05-secret-base64.svg)
 
-## 3. Secret 만들기 — 3가지 서브커맨드
+Secret의 값은 base64로 **인코딩**되어 저장됩니다. base64는 글자를 다른 표기로 바꾸는 규칙일 뿐, 열쇠가 필요한 암호화가 아닙니다.
+3절에서 직접 되돌려 봅니다.
 
-`kubectl create secret`에는 용도별로 3가지 종류가 있습니다.
+## 3. 실습 ① — Secret 만들고 들여다보기
 
-```text
-Available Commands:
-  generic          일반 값 (파일, 디렉토리, 리터럴)
-  docker-registry  프라이빗 Docker 레지스트리 로그인 정보
-  tls              TLS 인증서/키
+([examples/05-secret/secret.yaml](../examples/05-secret/secret.yaml))
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: db-secret
+type: Opaque                 # 일반 용도의 Secret (기본값)
+stringData:                  # 평문으로 적으면 저장할 때 자동으로 base64로 바뀐다
+  DB_USER: edu_user
+  DB_PASSWORD: edu-pass-1234
 ```
 
-### generic — 가장 많이 씀 (이번 실습에서 사용)
-
-```text
-# 리터럴 값으로
-k create secret generic <이름> \
-  --from-literal=env=prod --from-literal=username=demo-user
-
-# 파일로 (예: docker 설정 파일을 지정된 타입으로)
-k create secret generic docker-config-secret \
-    --from-file=.dockerconfigjson=/root/.docker/config.json \
-    --type=kubernetes.io/dockerconfigjson
-```
-
-### docker-registry — 프라이빗 레지스트리에서 이미지 받을 때 (개념)
-
-```text
-k create secret docker-registry docker \
-  --docker-server=<레지스트리주소> --docker-username=admin --docker-password=<비밀번호>
-```
-
-이렇게 만든 Secret을 Pod의 `imagePullSecrets`에 지정하면 프라이빗 이미지를 받을 수 있습니다.
-
-### tls — HTTPS 인증서 (개념)
-
-```text
-k create secret tls my-tls --cert=server.crt --key=server.key
-```
-
-## 4. Secret의 빌트인 타입
-
-| 타입 | 사용처 |
-|--------|-----|
-| `Opaque` (기본값) | 임의의 사용자 정의 데이터 |
-| `kubernetes.io/service-account-token` | 서비스 어카운트 토큰 |
-| `kubernetes.io/dockerconfigjson` | 직렬화된 `~/.docker/config.json` 파일 |
-| `kubernetes.io/basic-auth` | 기본 인증 자격 증명 |
-| `kubernetes.io/ssh-auth` | SSH 자격 증명 |
-| `kubernetes.io/tls` | TLS 클라이언트/서버용 데이터 |
-
-처음에는 `Opaque`(generic으로 만들면 이 타입)만 기억해도 충분합니다.
-
-## 5. 실습 ① — 정상: Secret을 Pod에 주입하기
-
-주입 방법은 4장 ConfigMap과 완전히 평행합니다. `configMapKeyRef → secretKeyRef`,
-`configMapRef → secretRef`, `configMap: → secret:` 으로 단어만 바뀝니다.
-
-### 5-1. 준비
+> `stringData` 대신 `data`를 쓰면 값을 직접 base64로 바꿔서 적어야 합니다 (`echo -n 'edu-pass-1234' | base64`). 결과는 같습니다.
 
 ```bash
-k create secret generic secret-edu05 \
-  --from-literal=env=prod --from-literal=username=demo-user
+kubectl apply -f examples/05-secret/secret.yaml
+kubectl describe secret db-secret
+```
 
-# 저장된 모습 확인 — 값이 base64로 보임
-k get secret secret-edu05 -oyaml
+```
+Name:         db-secret
+Namespace:    edu-lab
+Type:  Opaque
+
+Data
+====
+DB_PASSWORD:  13 bytes
+DB_USER:      8 bytes
+```
+
+ConfigMap과 달리 값은 보이지 않고 크기만 나옵니다. 하지만 YAML로 조회하면 보입니다.
+
+```bash
+kubectl get secret db-secret -o yaml
 ```
 
 ```yaml
+apiVersion: v1
 data:
-  env: cHJvZA==                # "prod"의 base64
-  username: ZGVtby11c2Vy
+  DB_PASSWORD: ZWR1LXBhc3MtMTIzNA==
+  DB_USER: ZWR1X3VzZXI=
+kind: Secret
+...
 ```
+
+알아볼 수 없는 문자열 같지만, 한 줄이면 원래 값으로 돌아옵니다.
 
 ```bash
-# base64 디코딩해 보기
-echo cHJvZA== | base64 -d; echo
+kubectl get secret db-secret -o jsonpath='{.data.DB_PASSWORD}' | base64 -d; echo
 ```
 
 ```
-prod
+edu-pass-1234
 ```
 
-### 5-2. 방법 ① 특정 key만 환경변수로
+**Secret을 조회할 수 있는 사람은 누구나 값을 볼 수 있습니다.** Secret의 안전은 base64가 아니라 "누구에게 조회 권한을 주는가"에 달려 있습니다.
 
-([examples/05-secret/pod-env-single.yaml](../examples/05-secret/pod-env-single.yaml))
+## 4. 실습 ② — 환경변수로 넣기
+
+([examples/05-secret/pod-env.yaml](../examples/05-secret/pod-env.yaml))
 
 ```yaml
     env:
-    - name: ENV
+    - name: PASSWORD               # key 하나만 골라서
       valueFrom:
-        secretKeyRef:          # ConfigMap 때의 configMapKeyRef와 동일 패턴
-          name: secret-edu05
-          key: env
+        secretKeyRef:              # configMapKeyRef -> secretKeyRef
+          name: db-secret
+          key: DB_PASSWORD
+    envFrom:                       # 모든 key를 한꺼번에
+    - secretRef:                   # configMapRef -> secretRef
+        name: db-secret
 ```
 
 ```bash
-k apply -f examples/05-secret/pod-env-single.yaml
-k wait --for=condition=Ready pod/secret-reader --timeout=60s
-k exec secret-reader -- sh -c "env | grep ENV"
+kubectl apply -f examples/05-secret/pod-env.yaml
+kubectl wait --for=condition=Ready pod/secret-env --timeout=60s
+kubectl exec secret-env -- env | grep -E 'PASSWORD|DB_'
 ```
 
 ```
-ENV=prod        ← 컨테이너 안에서는 디코딩된 원래 값으로 보임
+DB_PASSWORD=edu-pass-1234
+DB_USER=edu_user
+PASSWORD=edu-pass-1234
 ```
 
-### 5-3. 방법 ② Secret 전체를 환경변수로
+컨테이너 안에서는 **디코딩된 원래 값**으로 보입니다. 앱은 base64를 신경 쓸 필요가 없습니다.
 
-([examples/05-secret/pod-env-all.yaml](../examples/05-secret/pod-env-all.yaml))
-
-```yaml
-    envFrom:
-      - secretRef:
-          name: secret-edu05
-```
+`describe pod`에는 값이 나오지 않고 "어느 Secret의 어느 key에서 왔는지"만 나옵니다.
 
 ```bash
-k delete pod secret-reader --ignore-not-found
-k apply -f examples/05-secret/pod-env-all.yaml
-k wait --for=condition=Ready pod/secret-reader --timeout=60s
-k exec secret-reader -- sh -c "env | grep -E 'env=|username='"
+kubectl describe pod secret-env
 ```
 
 ```
-env=prod
-username=demo-user
+    Environment Variables from:
+      db-secret  Secret  Optional: false
+    Environment:
+      PASSWORD:  <set to the key 'DB_PASSWORD' in secret 'db-secret'>  Optional: false
 ```
 
-### 5-4. 방법 ③ 파일로 마운트 + 특정 key만 골라 파일명 변경
+## 5. 실습 ③ — 파일로 넣기
 
-([examples/05-secret/pod-volume-items.yaml](../examples/05-secret/pod-volume-items.yaml))
+인증서나 키 파일처럼 파일 형태로 필요한 값은 볼륨으로 마운트합니다.
+([examples/05-secret/pod-volume.yaml](../examples/05-secret/pod-volume.yaml))
 
 ```yaml
     volumeMounts:
-    - name: secret-volume
-      readOnly: true                 # Secret은 읽기 전용 마운트가 기본 예의
-      mountPath: /etc/secret-volume
+    - name: db
+      mountPath: /etc/db           # /etc/db/DB_USER, /etc/db/DB_PASSWORD 파일이 생긴다
+      readOnly: true
   volumes:
-  - name: secret-volume
-    secret:
-      secretName: secret-edu05
-      items:
-      - key: env
-        path: env.txt            # env 라는 key를 env.txt 라는 파일로
+  - name: db
+    secret:                        # configMap -> secret
+      secretName: db-secret        # (ConfigMap은 name, Secret은 secretName)
+      defaultMode: 0400            # 파일 권한: 소유자만 읽기
 ```
 
 ```bash
-k delete pod secret-reader --ignore-not-found
-k apply -f examples/05-secret/pod-volume-items.yaml
-k wait --for=condition=Ready pod/secret-reader --timeout=60s
-k exec secret-reader -- ls /etc/secret-volume/
-k exec secret-reader -- cat /etc/secret-volume/env.txt
+kubectl apply -f examples/05-secret/pod-volume.yaml
+kubectl wait --for=condition=Ready pod/secret-file --timeout=60s
+
+kubectl exec secret-file -- ls -lL /etc/db
+kubectl exec secret-file -- cat /etc/db/DB_PASSWORD; echo
 ```
 
 ```
-env.txt
-prod
+total 8
+-r--------    1 root     root            13 Nov 20 10:26 DB_PASSWORD
+-r--------    1 root     root             8 Nov 20 10:26 DB_USER
+
+edu-pass-1234
 ```
 
-**비교: 읽기 전용 마운트 확인** — Secret 볼륨은 `readOnly: true`로 마운트하는 것이 기본 예의입니다.
-실제로 쓰기가 막혀 있는지 확인해 봅시다.
+key 이름이 파일 이름이 되고, 값이 파일 내용이 됐습니다. 권한은 `defaultMode: 0400`대로 소유자만 읽을 수 있습니다.
+
+이 파일들은 디스크가 아니라 **메모리(tmpfs)** 에 있습니다. Pod가 사라지면 노드에 흔적이 남지 않습니다.
 
 ```bash
-k exec secret-reader -- sh -c "echo hack > /etc/secret-volume/env.txt" \
-  || echo "쓰기 거부됨 (예상된 동작 — 읽기 전용 마운트)"
+kubectl exec secret-file -- df -h /etc/db
 ```
 
 ```
-쓰기 거부됨 (예상된 동작 — 읽기 전용 마운트)
+Filesystem                Size      Used Available Use% Mounted on
+tmpfs                    15.4G      8.0K     15.4G   0% /etc/db
 ```
 
-(전체 key를 마운트하고 싶다면 `items`를 빼면 됩니다 — [examples/05-secret/pod-volume.yaml](../examples/05-secret/pod-volume.yaml) 참고)
-
-## 6. 실습 ② — 의도적 오류: 존재하지 않는 key 참조
-
-4장과 똑같은 패턴의 실수가 Secret에서도 그대로 일어납니다.
-([examples/05-secret/pod-env-single-broken.yaml](../examples/05-secret/pod-env-single-broken.yaml))
-
-```yaml
-    env:
-    - name: ENV
-      valueFrom:
-        secretKeyRef:
-          name: secret-edu05
-          key: env2              # 오타! 실제 key는 env (의도적 오류)
-```
-
-### 6-1. 오류 재현
+## 6. 고장 내고 고쳐 보기 — 없는 Secret 참조
 
 ```bash
-k delete pod secret-reader --ignore-not-found
-k apply -f examples/05-secret/pod-env-single-broken.yaml
-for i in $(seq 1 20); do
-  reason=$(k get pod secret-reader -o jsonpath='{.status.containerStatuses[0].state.waiting.reason}' 2>/dev/null)
-  [ "$reason" = "CreateContainerConfigError" ] && break
-  sleep 2
-done
-k get pod secret-reader
+kubectl apply -f examples/05-secret/pod-broken-name.yaml
+sleep 8
+kubectl get pod
 ```
 
 ```
-NAME             READY   STATUS                       RESTARTS   AGE
-secret-reader    0/1     CreateContainerConfigError    0          5s
+NAME            READY   STATUS                       RESTARTS   AGE
+secret-broken   0/1     CreateContainerConfigError   0          8s
+secret-env      1/1     Running                      0          11s
+secret-file     1/1     Running                      0          9s
 ```
 
-### 6-2. 관찰 (힌트)
+04장에서 본 `CreateContainerConfigError`입니다. 원인을 직접 찾아보세요.
 
 ```bash
-k describe pod secret-reader | grep -A5 "Events:"
+kubectl describe pod secret-broken
 ```
+
+<details><summary>원인과 해결 방법</summary>
 
 ```
 Events:
-  Type     Reason  From     Message
-  ----     ------  ----     -------
-  Warning  Failed  kubelet  Error: couldn't find key env2 in Secret default/secret-edu05
+  Type     Reason     Age                From               Message
+  ----     ------     ----               ----               -------
+  Normal   Scheduled  8s                 default-scheduler  Successfully assigned edu-lab/secret-broken to oks4.dd.io
+  Normal   Pulled     5s (x3 over 8s)    kubelet            Container image "busybox:1.36" already present on machine
+  Warning  Failed     5s (x3 over 8s)    kubelet            Error: secret "db-secrets" not found
 ```
 
-ConfigMap과 완전히 같은 형태의 메시지입니다. `k get secret secret-edu05 -oyaml`로 실제 key
-목록(`env`, `username`)을 확인하면 바로 오타를 잡을 수 있습니다.
-
-### 6-3. 복구
-
-<details><summary>조치하기 전, 원인과 수정할 대상을 먼저 설명해 보세요. 복구 방법 펼치기</summary>
+`secret "db-secrets" not found` — `db-secrets`라는 Secret이 없습니다. 실제 이름은 `db-secret`입니다.
 
 ```bash
-k delete pod secret-reader --ignore-not-found
-k apply -f examples/05-secret/pod-env-single.yaml
+kubectl get secret
+```
+
+이름 오타 외에 **네임스페이스가 다른 경우**에도 같은 오류가 납니다. Secret도 ConfigMap처럼 같은 네임스페이스의 Pod만 쓸 수 있습니다.
+YAML의 이름을 고쳐 다시 적용하면 됩니다. 여기서는 실습용 Pod이므로 지웁니다.
+
+```bash
+kubectl delete pod secret-broken
 ```
 
 </details>
 
-### 6-4. 기능 검증
+## 7. 알아 두면 좋은 것
+
+### 명령으로 만들기 (실무에서 더 권장)
+
+비밀번호가 적힌 YAML 파일을 Git에 올리면 그 순간 비밀이 아니게 됩니다. 그래서 Secret은 YAML 파일 없이 명령으로 만드는 경우가 많습니다.
+
+```text
+kubectl create secret generic api-secret --from-literal=API_KEY=abc123
+```
+
+### Secret의 종류
+
+`kubectl create secret` 뒤에 오는 단어에 따라 용도가 다른 Secret이 만들어집니다.
+
+| 명령 | 타입 | 용도 |
+|---|---|---|
+| `generic` | `Opaque` | 일반 값. 이 장에서 실습한 것 |
+| `docker-registry` | `kubernetes.io/dockerconfigjson` | 로그인이 필요한 이미지 저장소에서 이미지를 받을 때. Pod의 `imagePullSecrets`에 지정 |
+| `tls` | `kubernetes.io/tls` | HTTPS 인증서와 키. [10장 Ingress](10-ingress.md)에서 사용 |
+
+```text
+kubectl create secret docker-registry my-registry \
+  --docker-server=<저장소주소> --docker-username=<계정> --docker-password=<비밀번호>
+
+kubectl create secret tls my-tls --cert=server.crt --key=server.key
+```
+
+### 주의할 점
+
+- Secret을 **환경변수**로 넣으면 `kubectl exec ... env`나 앱의 디버그 로그로 값이 드러나기 쉽습니다. 민감한 값일수록 파일 마운트가 더 안전합니다.
+- Secret을 수정했을 때의 동작은 ConfigMap과 같습니다. 파일은 잠시 뒤 바뀌고, 환경변수는 Pod를 다시 띄워야 바뀝니다.
+
+## 8. 정리
 
 ```bash
-k wait --for=condition=Ready pod/secret-reader --timeout=60s
-k get pod secret-reader
-k exec secret-reader -- sh -c "env | grep ENV"
+kubectl delete pod secret-env secret-file
+kubectl delete -f examples/05-secret/secret.yaml
 ```
 
-```
-NAME             READY   STATUS    RESTARTS   AGE
-secret-reader    1/1     Running   0          5s
-ENV=prod
-```
+## 핵심 요약
 
-`Running`으로 복구되고 디코딩된 값이 정상적으로 보이면 복구 완료입니다.
-
-## 7. 실습 정리
-
-```bash
-k delete pod secret-reader --ignore-not-found
-k delete secret secret-edu05 --ignore-not-found
-```
+- Secret은 민감한 값을 담는 리소스이고, 사용법은 ConfigMap과 거의 같다.
+- 값은 base64로 저장되지만 누구나 되돌릴 수 있다. 암호화가 아니다.
+- Pod 안에서는 디코딩된 원래 값으로 보인다.
+- 볼륨으로 마운트한 Secret은 메모리(tmpfs)에 올라간다.
+- 비밀번호가 담긴 YAML을 Git에 올리지 않는다.
 
 ## 확인 문제
 
-1. Secret의 base64 인코딩은 암호화인가?
-2. ConfigMap의 `configMapKeyRef`에 대응하는 Secret의 필드명은?
-3. Secret을 볼륨으로 마운트할 때 `readOnly: true`를 쓰는 이유는?
+1. Secret의 base64 인코딩은 암호화인가요?
+2. ConfigMap의 `configMapKeyRef`에 대응하는 Secret의 필드 이름은 무엇인가요?
+3. `kubectl describe secret`으로는 값이 보이지 않습니다. 값을 확인하려면 어떻게 하나요?
+4. Pod가 `CreateContainerConfigError`이고 Events에 `secret "x" not found`가 나옵니다. 가능한 원인 두 가지는 무엇인가요?
 
 <details><summary>정답 보기</summary>
 
-1. 아니다. 누구나 한 줄로 디코딩할 수 있는 인코딩일 뿐이다. 보안은 접근 권한(RBAC)과 etcd 암호화로 보강해야 한다.
-2. `secretKeyRef`
-3. 컨테이너가 민감한 값을 실수로(혹은 악의적으로) 덮어쓰거나 지우는 것을 막기 위해서다.
+1. 아닙니다. 누구나 `base64 -d` 한 줄로 되돌릴 수 있는 표기법입니다. 보안은 조회 권한(RBAC)과 저장소 암호화로 확보합니다.
+2. `secretKeyRef`입니다. (`configMapRef` → `secretRef`, 볼륨의 `configMap.name` → `secret.secretName`)
+3. `kubectl get secret 이름 -o jsonpath='{.data.키}' | base64 -d`처럼 값을 꺼내 디코딩합니다.
+4. Secret 이름이 틀렸거나, Secret이 Pod와 다른 네임스페이스에 있는 경우입니다.
 </details>
 
 ---
 
-다음 장: [06. PV / PVC — Pod가 죽어도 데이터는 남게](06-pv-pvc.md)
+다음 장: [06. PV / PVC — Pod가 사라져도 남는 저장소](06-pv-pvc.md)
