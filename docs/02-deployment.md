@@ -1,264 +1,456 @@
 # 02. Deployment — Pod를 지키고, 늘리고, 무중단으로 바꾸는 관리자
 
-## 1. 개념
+**이 장을 마치면**
 
-1장에서 만든 Pod에는 치명적인 약점이 있습니다. **죽으면 끝**이라는 점입니다.
-노드가 고장 나거나 실수로 삭제하면 아무도 되살려 주지 않습니다.
+- Deployment, ReplicaSet, Pod의 관계를 설명할 수 있습니다.
+- Pod가 죽었을 때 자동으로 복구되는 것을 확인하고, 개수를 늘리고 줄일 수 있습니다.
+- 새 버전으로 무중단 업데이트하고, 문제가 생기면 이전 버전으로 되돌릴 수 있습니다.
 
-**Deployment(디플로이먼트)** 는 Pod를 대신 관리해 주는 상위 리소스입니다.
+---
 
-- Pod 개수를 **보장**한다 — "2개 유지해 줘"라고 선언하면, 하나가 죽어도 자동으로 다시 만들어 2개를 맞춘다
-- **롤링 업데이트(rolling update)** — 새 버전 배포 시 Pod를 하나씩 교체해서 서비스 중단이 없다
-- **롤백(rollback)** — 새 버전에 문제가 있으면 이전 버전으로 되돌릴 수 있다
+## 1. 왜 필요한가
 
-내부적으로 Deployment는 **ReplicaSet**이라는 중간 관리자를 만들고, ReplicaSet이 Pod 개수를 유지합니다.
+[01장](01-pod.md)에서 만든 Pod에는 치명적인 약점이 있습니다. **지우면 끝**이라는 점입니다.
+노드가 고장 나거나 누가 실수로 삭제하면 아무도 되살려 주지 않습니다.
 
-![Deployment > ReplicaSet > Pod 구조](../images/02-deployment-diagram.png)
+**Deployment(디플로이먼트)** 는 Pod를 대신 관리해 주는 관리자입니다.
 
-```
-Deployment  →  ReplicaSet  →  Pod, Pod
-(배포 전략/이력 관리)   (개수 유지)      (실제 실행)
-```
+| 기능 | 설명 |
+|---|---|
+| 개수 유지 | "3개 유지"라고 선언하면, 하나가 죽어도 자동으로 다시 만들어 3개를 맞춘다 |
+| 스케일링 | 숫자만 바꾸면 Pod가 늘거나 줄어든다 |
+| 롤링 업데이트 | 새 버전을 배포할 때 Pod를 하나씩 교체해서 서비스가 끊기지 않는다 |
+| 롤백 | 새 버전에 문제가 있으면 이전 버전으로 되돌린다 |
 
 실무에서는 **Pod를 직접 만들 일이 거의 없고, 대부분 Deployment로 만듭니다.**
 
-## 2. YAML 뜯어보기
+## 2. 구조: Deployment → ReplicaSet → Pod
 
-웹 서버를 Deployment로 띄우고 Service까지 함께 정의한 예시입니다.
-([examples/02-deployment/deploy-edu.yaml](../examples/02-deployment/deploy-edu.yaml))
+![Deployment 구조](../images/02-deployment.svg)
+
+Deployment는 Pod를 직접 만들지 않습니다. **ReplicaSet**이라는 중간 관리자를 만들고, ReplicaSet이 Pod 개수를 유지합니다.
+왜 한 단계를 더 두는지는 4절(롤링 업데이트)에서 알게 됩니다. 버전마다 ReplicaSet이 하나씩 생기기 때문입니다.
+
+## 3. YAML 뜯어보기
+
+([examples/02-deployment/deploy.yaml](../examples/02-deployment/deploy.yaml))
 
 ```yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: deploy-edu02
+  name: web
 spec:
-  replicas: 2                  # Pod를 몇 개 유지할 것인가
-  selector:                    # "어떤 Pod가 내 관리 대상인가"를 레이블로 지정
+  replicas: 3                  # Pod를 항상 3개로 유지
+  selector:                    # 어떤 Pod가 내 관리 대상인지 레이블로 지정
     matchLabels:
-      app: edu02-web           # ← 아래 template의 레이블과 반드시 일치해야 함!
-  template:                    # 여기서부터는 "Pod를 찍어낼 틀" (1장의 Pod 정의와 동일한 구조)
+      app: web
+  template:                    # Pod를 찍어 낼 틀 (01장의 Pod YAML과 같은 모양)
     metadata:
       labels:
-        app: edu02-web         # 찍혀 나오는 Pod마다 이 레이블이 붙음
+        app: web               # selector.matchLabels와 반드시 같아야 한다
     spec:
       containers:
-        - name: web
-          image: nginx:1.27-alpine
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 80
----                            # '---' 는 한 파일에 여러 리소스를 적는 구분선
-apiVersion: v1
-kind: Service
-metadata:
-  name: svc-edu02
-spec:
-  selector:
-    app: edu02-web             # app=edu02-web 레이블이 붙은 Pod들에게 트래픽 전달
-  ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 80
-  type: ClusterIP               # 클러스터 내부에서만 접근 (외부 노출은 3장 Service에서)
+      - name: nginx
+        image: nginx:1.26-alpine
+        ports:
+        - containerPort: 80
 ```
 
-**핵심 연결 고리**: `selector.matchLabels` = `template.metadata.labels` = Service의 `selector`.
-세 곳의 레이블이 맞아야 "Deployment가 Pod를 관리하고, Service가 그 Pod들을 찾는" 체인이 완성됩니다.
+`template` 아래는 01장의 Pod YAML에서 `apiVersion`, `kind`, `name`만 빠진 모습입니다.
+Deployment는 이 틀로 Pod를 찍어 내고, **`app: web` 레이블이 붙은 Pod가 3개인지** 계속 셉니다. 01장에서 배운 레이블이 여기서 쓰입니다.
 
-## 3. 실습 ① — 정상: 배포와 자동 복구(self-healing)
+## 4. 실습 ① — 만들기와 자동 복구
 
-### 3-1. 생성 및 준비 상태 확인
+### 4-1. 만들기
 
 ```bash
-k apply -f examples/02-deployment/deploy-edu.yaml
-k wait --for=condition=Available deployment/deploy-edu02 --timeout=60s
-k get deploy,rs,pod -l app=edu02-web
+kubectl apply -f examples/02-deployment/deploy.yaml
+kubectl rollout status deployment/web
 ```
 
 ```
-NAME                             READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/deploy-edu02     2/2     2            2           20s
-
-NAME                                      DESIRED   CURRENT   READY   AGE
-replicaset.apps/deploy-edu02-6c7cbd7b6    2         2         2       20s
-
-NAME                                READY   STATUS    RESTARTS   AGE
-pod/deploy-edu02-6c7cbd7b6-nlt55    1/1     Running   0          20s
-pod/deploy-edu02-6c7cbd7b6-s2jgm    1/1     Running   0          20s
+deployment.apps/web created
+Waiting for deployment "web" rollout to finish: 0 of 3 updated replicas are available...
+Waiting for deployment "web" rollout to finish: 1 of 3 updated replicas are available...
+Waiting for deployment "web" rollout to finish: 2 of 3 updated replicas are available...
+deployment "web" successfully rolled out
 ```
 
-Deployment 하나로 ReplicaSet과 Pod 2개가 줄줄이 생긴 게 보입니다.
-Pod 이름의 `6c7cbd7b6-nlt55` 같은 부분은 자동으로 붙는 랜덤 해시입니다 — 1장에서 본 것과 달리
-**매번 새 이름**이 붙기 때문에, Pod가 재생성될 때마다 호스트네임도 함께 바뀝니다.
+`rollout status`는 배포가 끝날 때까지 진행 상황을 보여 줍니다.
 
-### 3-2. 자동 복구 체험
-
-Pod 하나를 **일부러 죽여 봅시다.**
+세 종류의 리소스를 한 번에 조회해 봅니다.
 
 ```bash
-VICTIM=$(k get pod -l app=edu02-web -o jsonpath='{.items[0].metadata.name}')
-k delete pod "$VICTIM"
-sleep 3
-k get pod -l app=edu02-web
+kubectl get deployment,replicaset,pod
 ```
 
 ```
-NAME                          READY   STATUS    RESTARTS   AGE
-deploy-edu02-6c7cbd7b6-s2jgm   1/1     Running   0          3m
-deploy-edu02-6c7cbd7b6-x9k2p   1/1     Running   0          5s    ← 새로 생김!
+NAME                  READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/web   3/3     3            3           8s
+
+NAME                             DESIRED   CURRENT   READY   AGE
+replicaset.apps/web-68dc48cd79   3         3         3       8s
+
+NAME                       READY   STATUS    RESTARTS   AGE
+pod/web-68dc48cd79-c4hzd   1/1     Running   0          8s
+pod/web-68dc48cd79-ht26c   1/1     Running   0          8s
+pod/web-68dc48cd79-kz47w   1/1     Running   0          8s
 ```
 
-삭제하자마자 새 Pod가 즉시 생성됩니다. "replicas: 2를 유지하라"는 선언을 쿠버네티스가 지키는 것입니다.
+이름에 규칙이 있습니다.
 
-### 3-3. Pod 개수 조절 (스케일링)
+```
+web                    ← Deployment 이름
+web-68dc48cd79         ← ReplicaSet = Deployment 이름 + Pod 틀(template)의 해시
+web-68dc48cd79-c4hzd   ← Pod = ReplicaSet 이름 + 무작위 문자열
+```
+
+### 4-2. Pod를 지워 보기 (자동 복구)
+
+Pod 하나를 골라 지웁니다. Pod 이름은 각자 출력에 나온 것으로 바꿔 넣으세요.
+
+```text
+kubectl delete pod web-68dc48cd79-c4hzd
+```
 
 ```bash
-k scale deployment deploy-edu02 --replicas=4
-sleep 3
-k get pod -l app=edu02-web --no-headers | wc -l   # 4개로 늘어남
-k scale deployment deploy-edu02 --replicas=2
+kubectl get pod
 ```
 
-## 4. 실습 ② — 의도적 오류: 잘못된 이미지로 롤링 업데이트
+```
+NAME                   READY   STATUS    RESTARTS   AGE
+web-68dc48cd79-ht26c   1/1     Running   0          11s
+web-68dc48cd79-kz47w   1/1     Running   0          11s
+web-68dc48cd79-tzgpf   1/1     Running   0          3s
+```
 
-실무에서 "배포했더니 새 버전 Pod들이 하나도 안 뜬다"는 상황 1순위 원인은 **이미지 태그 오타**입니다.
-
-### 4-1. 업데이트 이력 확인
+지운 Pod 대신 **새 이름의 Pod**(`...-tzgpf`, `AGE` 3초)가 생겨서 다시 3개가 됐습니다.
+누가 만들었는지는 ReplicaSet의 Events에 남아 있습니다.
 
 ```bash
-k rollout history deployment deploy-edu02
-```
-
-```
-REVISION  CHANGE-CAUSE
-1         <none>
-```
-
-`CHANGE-CAUSE`(변경 사유)는 기본으로 비어 있습니다. 변경 사유를 남기려면 annotate를 씁니다.
-
-```bash
-k annotate deployment deploy-edu02 kubernetes.io/change-cause="초기 배포" --overwrite
-```
-
-### 4-2. 오류 재현 — 존재하지 않는 이미지 태그로 교체
-
-```bash
-k set image deployment deploy-edu02 web=nginx:1.27-alpine-typo
-k annotate deployment deploy-edu02 kubernetes.io/change-cause="오타난 이미지로 배포(의도적 오류)" --overwrite
-k rollout status deployment deploy-edu02 --timeout=20s || echo "==> 제한 시간 내에 끝나지 않음 (예상된 동작)"
-```
-
-`--timeout`을 넘기면 `rollout status`가 영원히 매달리지 않고 일정 시간 뒤 에러로 끝납니다.
-위 메시지가 보이면 정상적으로 "문제가 있다"는 신호를 받은 것입니다.
-
-### 4-3. 관찰 (힌트)
-
-```bash
-k get rs -l app=edu02-web
-k get pod -l app=edu02-web
-```
-
-```
-NAME                            DESIRED   CURRENT   READY   AGE
-deploy-edu02-6c7cbd7b6          2         2         2       3m    ← 이전 버전, 그대로 유지됨
-deploy-edu02-7d8f9c9c7          1         1         0       10s   ← 새 버전, READY가 0
-
-NAME                             READY   STATUS             RESTARTS   AGE
-deploy-edu02-6c7cbd7b6-s2jgm      1/1     Running            0          3m
-deploy-edu02-6c7cbd7b6-nlt55      1/1     Running            0          3m
-deploy-edu02-7d8f9c9c7-k2m9p      0/1     ImagePullBackOff   0          10s
-```
-
-새 ReplicaSet의 Pod가 `ImagePullBackOff`에 멈춰 있고, 옛 ReplicaSet은 **Pod를 하나도 끄지 않고
-그대로 살려 둔 채** 대기합니다. 이것이 롤링 업데이트의 안전장치입니다 — 새 버전이 Ready가 되기
-전까지는 옛 버전을 줄이지 않습니다(기본값 `maxUnavailable=25%`가 replicas: 2에서는 0으로
-내려가기 때문에 더더욱 그렇습니다).
-원인을 `describe`로 한 번 더 확인합니다.
-
-```bash
-BADPOD=$(k get pod -l app=edu02-web --field-selector=status.phase!=Running -o jsonpath='{.items[0].metadata.name}')
-k describe pod "$BADPOD" | grep -A5 "Events:"
+kubectl describe replicaset -l app=web
 ```
 
 ```
 Events:
-  Type     Reason   From     Message
-  ----     ------   ----     -------
-  Warning  Failed   kubelet  Failed to pull image "nginx:1.27-alpine-typo": ... not found
-  Warning  BackOff  kubelet  Back-off pulling image "nginx:1.27-alpine-typo"
+  Type    Reason            Age   From                   Message
+  ----    ------            ----  ----                   -------
+  Normal  SuccessfulCreate  16s   replicaset-controller  Created pod: web-68dc48cd79-kz47w
+  Normal  SuccessfulCreate  16s   replicaset-controller  Created pod: web-68dc48cd79-ht26c
+  Normal  SuccessfulCreate  16s   replicaset-controller  Created pod: web-68dc48cd79-c4hzd
+  Normal  SuccessfulCreate  8s    replicaset-controller  Created pod: web-68dc48cd79-tzgpf
 ```
 
-→ 이미지를 못 받아오고 있다는 것이 명확히 보입니다. 이미지 이름/태그 오타가 원인입니다.
+[00장](00-시작하기-전에.md)의 "선언형" 그림 그대로입니다. 원하는 상태(3개)와 현재 상태(2개)가 다르니 컨트롤러가 1개를 더 만들었습니다.
 
-### 4-4. 복구 — 롤백
-
-<details><summary>조치하기 전, 원인과 수정할 대상을 먼저 설명해 보세요. 복구 방법 펼치기</summary>
-
-새 버전에 문제가 있다면 한 줄로 되돌립니다.
+### 4-3. 개수 늘리고 줄이기 (스케일링)
 
 ```bash
-k rollout undo deployment deploy-edu02
+kubectl scale deployment web --replicas=5
+kubectl get pod
 ```
 
 ```
-deployment.apps/deploy-edu02 rolled back
+NAME                   READY   STATUS              RESTARTS   AGE
+web-68dc48cd79-ht26c   1/1     Running             0          21s
+web-68dc48cd79-jr25b   0/1     ContainerCreating   0          5s
+web-68dc48cd79-kz47w   1/1     Running             0          21s
+web-68dc48cd79-rqr79   1/1     Running             0          5s
+web-68dc48cd79-tzgpf   1/1     Running             0          13s
 ```
-
-롤백도 롤링 방식으로 진행되어 무중단입니다.
 
 ```bash
-k rollout history deployment deploy-edu02
+kubectl scale deployment web --replicas=3
+kubectl get pod
+```
+
+다시 3개로 줄어듭니다. 사라지는 Pod는 잠깐 `Terminating`으로 보입니다.
+
+> YAML 파일의 `replicas`를 고친 뒤 `kubectl apply`해도 결과는 같습니다. 실무에서는 변경 이력이 파일에 남는 이 방법을 더 권장합니다.
+
+## 5. 실습 ② — 롤링 업데이트
+
+nginx를 1.26에서 1.27로 올려 봅니다. Pod를 한꺼번에 바꾸면 그동안 서비스가 끊깁니다.
+Deployment는 **새 Pod를 하나 띄우고, 준비되면 옛 Pod를 하나 내리는** 방식으로 교체합니다.
+
+![롤링 업데이트](../images/02-rolling-update.svg)
+
+### 5-1. 이력에 메모 남기기
+
+나중에 이력을 볼 때 알아보기 쉽도록, 지금 버전에 설명을 붙여 둡니다.
+
+```bash
+kubectl annotate deployment web kubernetes.io/change-cause="nginx 1.26 최초 배포"
+```
+
+### 5-2. 이미지 바꾸기
+
+```bash
+kubectl set image deployment/web nginx=nginx:1.27-alpine
+kubectl rollout status deployment/web
+```
+
+```
+deployment.apps/web image updated
+Waiting for deployment "web" rollout to finish: 1 out of 3 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 2 out of 3 new replicas have been updated...
+Waiting for deployment "web" rollout to finish: 1 old replicas are pending termination...
+deployment "web" successfully rolled out
+```
+
+`nginx=nginx:1.27-alpine`은 "`nginx`라는 이름의 컨테이너 이미지를 `nginx:1.27-alpine`으로 바꿔라"는 뜻입니다.
+
+```bash
+kubectl annotate deployment web kubernetes.io/change-cause="nginx 1.27로 업데이트"
+```
+
+### 5-3. 무슨 일이 일어났나
+
+```bash
+kubectl get replicaset -o wide
+```
+
+```
+NAME             DESIRED   CURRENT   READY   AGE   CONTAINERS   IMAGES              SELECTOR
+web-68dc48cd79   0         0         0       29s   nginx        nginx:1.26-alpine   app=web,pod-template-hash=68dc48cd79
+web-6b5cb6d6fb   3         3         3       4s    nginx        nginx:1.27-alpine   app=web,pod-template-hash=6b5cb6d6fb
+```
+
+**ReplicaSet이 2개**가 됐습니다. 옛 버전(1.26)의 ReplicaSet은 Pod 0개로 남아 있고, 새 버전(1.27)의 ReplicaSet이 3개를 가지고 있습니다.
+옛 ReplicaSet을 지우지 않고 남겨 두는 이유는 **롤백할 때 쓰기 위해서**입니다.
+
+교체 과정은 Deployment의 Events에 그대로 기록되어 있습니다.
+
+```bash
+kubectl describe deployment web
+```
+
+```
+Events:
+  Type    Reason             Age   From                   Message
+  ----    ------             ----  ----                   -------
+  ...
+  Normal  ScalingReplicaSet  4s    deployment-controller  Scaled up replica set web-6b5cb6d6fb to 1
+  Normal  ScalingReplicaSet  3s    deployment-controller  Scaled down replica set web-68dc48cd79 to 2 from 3
+  Normal  ScalingReplicaSet  3s    deployment-controller  Scaled up replica set web-6b5cb6d6fb to 2 from 1
+  Normal  ScalingReplicaSet  1s    deployment-controller  Scaled down replica set web-68dc48cd79 to 1 from 2
+  Normal  ScalingReplicaSet  1s    deployment-controller  Scaled up replica set web-6b5cb6d6fb to 3 from 2
+  Normal  ScalingReplicaSet  0s    deployment-controller  Scaled down replica set web-68dc48cd79 to 0 from 1
+```
+
+새 ReplicaSet은 1 → 2 → 3으로 늘고, 옛 ReplicaSet은 3 → 2 → 1 → 0으로 줄었습니다. 위 그림과 같은 순서입니다.
+
+### 5-4. 이력 보기
+
+```bash
+kubectl rollout history deployment/web
+```
+
+```
+deployment.apps/web
+REVISION  CHANGE-CAUSE
+1         nginx 1.26 최초 배포
+2         nginx 1.27로 업데이트
+```
+
+## 6. 고장 내고 고쳐 보기 — 잘못된 버전 배포와 롤백
+
+### 6-1. 존재하지 않는 버전으로 업데이트
+
+```bash
+kubectl set image deployment/web nginx=nginx:9.99-nope
+kubectl annotate deployment web kubernetes.io/change-cause="nginx 9.99로 업데이트 (잘못된 태그)"
+kubectl rollout status deployment/web --timeout=30s
+```
+
+```
+deployment.apps/web image updated
+Waiting for deployment "web" rollout to finish: 1 out of 3 new replicas have been updated...
+error: timed out waiting for the condition
+```
+
+배포가 끝나지 않습니다. 상태를 봅니다.
+
+```bash
+kubectl get deployment web
+kubectl get replicaset
+kubectl get pod
+```
+
+```
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE
+web    3/3     1            3           60s
+
+NAME             DESIRED   CURRENT   READY   AGE
+web-68dc48cd79   0         0         0       60s
+web-6b5cb6d6fb   3         3         3       35s
+web-7fdcf8dc64   1         1         0       30s
+
+NAME                   READY   STATUS             RESTARTS   AGE
+web-6b5cb6d6fb-7xrxg   1/1     Running            0          35s
+web-6b5cb6d6fb-jbfhk   1/1     Running            0          34s
+web-6b5cb6d6fb-lffpx   1/1     Running            0          32s
+web-7fdcf8dc64-k2sg2   0/1     ImagePullBackOff   0          30s
+```
+
+**여기서 꼭 봐야 할 것:** 새 Pod는 `ImagePullBackOff`로 실패했지만, **기존 Pod 3개는 그대로 `Running`** 입니다.
+롤링 업데이트는 새 Pod가 준비되어야 옛 Pod를 내리기 때문에, 잘못된 버전을 배포해도 서비스는 계속됩니다.
+
+<details><summary>원인 확인 방법</summary>
+
+01장에서 본 것과 같습니다. 실패한 Pod를 `describe`합니다. (Pod 이름은 각자 출력에 맞게 바꾸세요)
+
+```text
+kubectl describe pod web-7fdcf8dc64-k2sg2
+```
+
+```
+  Warning  Failed  9s (x2 over 24s)  kubelet  Failed to pull image "nginx:9.99-nope": ... docker.io/library/nginx:9.99-nope: not found
 ```
 
 </details>
 
-### 4-5. 기능 검증
+### 6-2. 롤백
 
 ```bash
-k rollout status deployment deploy-edu02 --timeout=60s
-k get pod -l app=edu02-web
+kubectl rollout undo deployment/web
+kubectl rollout status deployment/web
 ```
 
 ```
-deployment "deploy-edu02" successfully rolled out
-NAME                            READY   STATUS    RESTARTS   AGE
-deploy-edu02-6c7cbd7b6-s2jgm     1/1     Running   0          4m
-deploy-edu02-6c7cbd7b6-x9k2p     1/1     Running   0          80s
+deployment.apps/web rolled back
+deployment "web" successfully rolled out
 ```
-
-Service를 통해서도 정상 응답하는지 확인합니다 (Pod 하나를 빌려 자기 네임스페이스의 Service를
-이름으로 호출 — 자세한 내용은 3장).
 
 ```bash
-# 이름순 첫 Pod는 종료 중일 수 있으므로 정상 배포를 통해 요청한다.
-k exec deploy/deploy-edu02 -- wget -qO- http://svc-edu02/ | grep -o "Welcome to nginx"
+kubectl get deployment web -o wide
+kubectl get pod
 ```
 
 ```
-Welcome to nginx
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES              SELECTOR
+web    3/3     3            3           61s   nginx        nginx:1.27-alpine   app=web
+
+NAME                   READY   STATUS    RESTARTS   AGE
+web-6b5cb6d6fb-7xrxg   1/1     Running   0          36s
+web-6b5cb6d6fb-jbfhk   1/1     Running   0          35s
+web-6b5cb6d6fb-lffpx   1/1     Running   0          33s
 ```
 
-## 5. 실습 정리
+이미지가 `nginx:1.27-alpine`으로 돌아왔고, 실패하던 Pod는 사라졌습니다.
+
+### 6-3. 특정 버전으로 되돌리기
 
 ```bash
-k delete -f examples/02-deployment/deploy-edu.yaml --ignore-not-found
+kubectl rollout history deployment/web
 ```
 
-> **팁**: `apply -f`로 만든 것은 `delete -f`로 한 번에 지울 수 있습니다. 파일에 정의된
-> 리소스(Deployment + Service)가 모두 삭제됩니다.
+```
+REVISION  CHANGE-CAUSE
+1         nginx 1.26 최초 배포
+3         nginx 9.99로 업데이트 (잘못된 태그)
+4         nginx 1.27로 업데이트
+```
+
+롤백도 하나의 새 배포입니다. 그래서 2번이 사라지고 같은 내용이 **4번**으로 다시 등록됐습니다.
+
+`undo`는 기본적으로 바로 이전 버전으로 돌아갑니다. 특정 번호로 돌아가려면 `--to-revision`을 씁니다.
+
+```bash
+# 1번이 어떤 내용이었는지 확인
+kubectl rollout history deployment/web --revision=1
+
+# 1번(nginx 1.26)으로 되돌리기
+kubectl rollout undo deployment/web --to-revision=1
+kubectl rollout status deployment/web
+kubectl get deployment web -o wide
+```
+
+```
+NAME   READY   UP-TO-DATE   AVAILABLE   AGE   CONTAINERS   IMAGES              SELECTOR
+web    3/3     3            3           65s   nginx        nginx:1.26-alpine   app=web
+```
+
+### 6-4. 고장 ② — selector와 template 레이블이 다르면?
+
+3절에서 "`selector.matchLabels`와 `template`의 레이블은 반드시 같아야 한다"고 했습니다. 다르게 쓰면 어떻게 될까요?
+([examples/02-deployment/deploy-label-mismatch.yaml](../examples/02-deployment/deploy-label-mismatch.yaml))
+
+```bash
+kubectl apply -f examples/02-deployment/deploy-label-mismatch.yaml
+```
+
+```
+The Deployment "web-mismatch" is invalid: spec.template.metadata.labels: Invalid value: map[string]string{"app":"web-mismatsh"}: `selector` does not match template `labels`
+```
+
+이번에는 Pod가 실패하는 것이 아니라 **생성 자체가 거부**됩니다. 자기가 만든 Pod를 자기가 찾지 못하는 Deployment는 의미가 없기 때문입니다.
+오류 메시지에 원인(`selector does not match template labels`)이 그대로 적혀 있습니다. 아무것도 만들어지지 않았으므로 치울 것도 없습니다.
+
+## 7. 알아 두면 좋은 것
+
+**Pod를 전부 새로 띄우고 싶을 때** — 이미지는 그대로 두고 재시작만 하고 싶다면 `rollout restart`를 씁니다. 이것도 롤링 방식이라 서비스가 끊기지 않습니다.
+
+```bash
+kubectl rollout restart deployment/web
+kubectl rollout status deployment/web
+```
+
+**한 번에 몇 개씩 교체할지** — `kubectl describe deployment web`에 이런 줄이 있습니다.
+
+```
+StrategyType:           RollingUpdate
+RollingUpdateStrategy:  25% max unavailable, 25% max surge
+```
+
+- `max surge`: 교체 중에 `replicas`보다 **더 띄울 수 있는** Pod 수 (3개의 25% → 올림해서 1개)
+- `max unavailable`: 교체 중에 **모자라도 되는** Pod 수 (3개의 25% → 내림해서 0개)
+
+그래서 6-1에서 새 Pod가 1개만 생겼고, 옛 Pod는 하나도 줄지 않았던 것입니다.
+
+## 8. 정리
+
+```bash
+kubectl delete -f examples/02-deployment/deploy.yaml
+kubectl get all
+```
+
+```
+No resources found in edu-lab namespace.
+```
+
+Deployment를 지우면 그 아래의 ReplicaSet과 Pod도 함께 지워집니다.
+
+## 핵심 요약
+
+- Deployment → ReplicaSet → Pod. 사용자는 Deployment만 만든다.
+- Pod가 사라지면 ReplicaSet이 개수를 다시 맞춘다.
+- 이미지를 바꾸면 새 ReplicaSet이 생기고 Pod가 하나씩 교체된다(롤링 업데이트).
+- 잘못된 버전을 배포해도 기존 Pod는 유지된다. `rollout undo`로 되돌린다.
+
+| 자주 쓰는 명령 | 용도 |
+|---|---|
+| `kubectl rollout status deployment/이름` | 배포 진행 상황 |
+| `kubectl scale deployment 이름 --replicas=N` | 개수 조절 |
+| `kubectl set image deployment/이름 컨테이너=이미지` | 이미지 변경 |
+| `kubectl rollout history deployment/이름` | 배포 이력 |
+| `kubectl rollout undo deployment/이름 [--to-revision=N]` | 롤백 |
+| `kubectl rollout restart deployment/이름` | 전체 Pod 재시작 |
 
 ## 확인 문제
 
-1. replicas: 2인 Deployment에서 Pod 하나를 `kubectl delete pod`로 지우면 어떻게 되는가?
-2. Deployment와 Pod 사이에 있는 중간 관리자의 이름은?
-3. 이미지 태그 오타로 새 버전이 전부 `ImagePullBackOff`가 나도 서비스가 멈추지 않는 이유는?
+1. Deployment가 관리하는 Pod 하나를 `kubectl delete pod`로 지우면 어떻게 되나요?
+2. 이미지를 바꾼 뒤 ReplicaSet이 2개 보이는 이유는 무엇인가요?
+3. 존재하지 않는 이미지로 업데이트했을 때 기존 Pod가 그대로 남아 있던 이유는 무엇인가요?
+4. Deployment로 만든 Pod를 완전히 없애려면 무엇을 지워야 하나요?
 
 <details><summary>정답 보기</summary>
 
-1. ReplicaSet이 개수 부족(1 < 2)을 감지하고 즉시 새 Pod를 만들어 2개를 복구한다. Pod를 정말 없애려면 Deployment 자체를 지우거나 replicas를 줄여야 한다.
-2. ReplicaSet
-3. 롤링 업데이트는 새 Pod가 Ready 되기 전까지 옛 ReplicaSet의 Pod를 끄지 않기 때문. 새 버전이 전부 실패해도 옛 버전 Pod가 계속 트래픽을 받는다.
+1. ReplicaSet이 개수가 모자란 것을 발견하고 새 Pod를 만듭니다. 이름과 IP는 새로 정해집니다.
+2. 버전(Pod 틀)마다 ReplicaSet이 하나씩 만들어지기 때문입니다. 옛 ReplicaSet은 Pod 0개로 남아 롤백에 쓰입니다.
+3. 롤링 업데이트는 새 Pod가 준비(Ready)되어야 옛 Pod를 내립니다. 새 Pod가 준비되지 못했으므로 옛 Pod가 유지됐습니다.
+4. Deployment를 지워야 합니다. Pod만 지우면 다시 만들어집니다.
 </details>
 
 ---

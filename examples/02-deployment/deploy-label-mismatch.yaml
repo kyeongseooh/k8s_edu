@@ -1,0 +1,18 @@
+# 고장 실습: selector와 template의 레이블이 서로 다르다 -> 생성 자체가 거부된다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-mismatch
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web-mismatch
+  template:
+    metadata:
+      labels:
+        app: web-mismatsh       # 오타! selector와 다르다
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:1.26-alpine
