@@ -1,0 +1,79 @@
+# 실습용 Airflow 설정 (Helm 차트 apache-airflow/airflow 1.16.0 의 values)
+# 이 파일을 Git에서 고치면 Argo CD가 Airflow를 그에 맞게 바꾼다.
+
+# ── 버전 ─────────────────────────────────────────────
+defaultAirflowRepository: apache/airflow
+defaultAirflowTag: "2.10.4"
+airflowVersion: "2.10.4"
+
+# ── 실행 방식 ─────────────────────────────────────────
+# KubernetesExecutor: 작업(task) 하나마다 Pod를 하나씩 띄워서 실행하고, 끝나면 지운다
+executor: KubernetesExecutor
+
+# ── Argo CD와 함께 쓸 때 필요한 설정 ─────────────────────
+# Helm 훅 대신 일반 Job으로 만들어야 Argo CD가 순서대로 처리할 수 있다
+createUserJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+migrateDatabaseJob:
+  useHelmHooks: false
+  applyCustomEnv: false
+
+# ── 데이터베이스: 차트에 딸린 것을 쓰지 않고 따로 띄운 PostgreSQL을 쓴다 ──
+postgresql:
+  enabled: false
+data:
+  metadataSecretName: airflow-metadata        # 접속 문자열이 든 Secret (kubectl로 미리 만든다)
+
+# ── 암호화 키: Secret에서 읽는다 (Git에 넣지 않는다) ──────────
+fernetKeySecretName: airflow-fernet-key
+webserverSecretKeySecretName: airflow-webserver-secret
+
+# ── 접속 주소 ─────────────────────────────────────────
+ingress:
+  web:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+    - name: edu-airflow.10.0.1.230.nip.io
+
+# ── DAG: Git 저장소에서 주기적으로 받아 온다 (git-sync) ───────
+dags:
+  gitSync:
+    enabled: true
+    repo: https://github.com/kyeongseooh/k8s_edu.git
+    branch: main
+    rev: HEAD
+    subPath: platform/dags                    # 저장소 안에서 DAG 파일이 있는 디렉터리
+    period: 30s                               # 30초마다 확인
+
+# ── 로그: 작업 Pod가 사라져도 로그가 남도록 공유 볼륨에 저장 ──────
+logs:
+  persistence:
+    enabled: true
+    storageClassName: nfs-client
+    size: 1Gi
+
+# ── 구성 요소별 크기 (실습용으로 작게) ────────────────────────
+webserver:
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1536Mi}
+scheduler:
+  replicas: 1
+  resources:
+    requests: {cpu: 100m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1536Mi}
+triggerer:
+  enabled: false                              # 이 실습에서는 쓰지 않는다
+workers:                                      # 작업 Pod의 크기
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
+redis:
+  enabled: false                              # CeleryExecutor에서만 필요
+
+# ── 지표: Prometheus가 읽을 수 있는 형태로 내보낸다 (06장에서 사용) ──
+statsd:
+  enabled: true

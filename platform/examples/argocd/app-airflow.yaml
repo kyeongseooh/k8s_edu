@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: edu-airflow
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: edu-airflow
+  sources:                                     # 출처가 세 군데다
+  # 1) Airflow 공식 Helm 차트 (설치 방법)
+  - repoURL: https://airflow.apache.org
+    chart: airflow
+    targetRevision: 1.16.0
+    helm:
+      releaseName: airflow
+      valueFiles:
+      - $values/platform/gitops/airflow/values.yaml     # 3)의 Git 저장소에 있는 설정 파일
+  # 2) Git 저장소의 일반 YAML (PostgreSQL)
+  - repoURL: https://github.com/kyeongseooh/k8s_edu.git
+    targetRevision: main
+    path: platform/gitops/airflow/manifests
+  # 3) Git 저장소를 "$values"라는 이름으로 참조 (1에서 설정 파일을 읽기 위해)
+  - repoURL: https://github.com/kyeongseooh/k8s_edu.git
+    targetRevision: main
+    ref: values
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 20s
+        factor: 2
+        maxDuration: 3m
