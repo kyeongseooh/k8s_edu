@@ -213,14 +213,12 @@ kubectl delete secret literal
 ## 확인 문제
 
 1. Secret의 base64 인코딩은 암호화인가?
-2. 프라이빗 Docker 레지스트리에서 이미지를 받기 위한 Secret 종류는?
-3. ConfigMap의 `configMapKeyRef`에 대응하는 Secret의 필드명은?
+2. ConfigMap의 `configMapKeyRef`에 대응하는 Secret의 필드명은?
 
 <details><summary>정답 보기</summary>
 
 1. 아니다. 누구나 한 줄로 디코딩할 수 있는 인코딩일 뿐이다. 보안은 접근 권한(RBAC)과 etcd 암호화로 보강해야 한다.
-2. `kubectl create secret docker-registry` (타입: kubernetes.io/dockerconfigjson)
-3. `secretKeyRef`
+2. `secretKeyRef`
 </details>
 
 ---
