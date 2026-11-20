@@ -157,9 +157,6 @@ kubectl exec -it <아무 pod 이름> -- \
   curl external-dns-service.default.svc.cluster.local
 ```
 
-google.com의 404 페이지 HTML이 응답되면 성공입니다. (구글 루트가 Host 헤더 때문에 404를 돌려줄 뿐,
-"내부 이름 → 외부 도메인" 연결 자체는 동작한 것입니다.)
-
 ## 5. 실습 정리
 
 ```bash
