@@ -1,0 +1,13 @@
+# 고장 실습: 존재하지 않는 이미지 태그 -> ImagePullBackOff
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-bad
+  labels:
+    app: web-bad
+spec:
+  containers:
+  - name: nginx
+    image: nginx:1.27-alpime     # 오타! (alpine -> alpime)
+    ports:
+    - containerPort: 80

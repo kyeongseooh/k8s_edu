@@ -1,297 +1,523 @@
 # 01. Pod — 쿠버네티스의 최소 실행 단위
 
-## 1. 개념
+**이 장을 마치면**
+
+- Pod가 무엇이고 컨테이너와 어떻게 다른지 설명할 수 있습니다.
+- YAML로 Pod를 만들고, 상태를 보고, 로그를 보고, 안에 들어가 볼 수 있습니다.
+- Pod가 뜨지 않을 때 `describe`로 원인을 찾을 수 있습니다.
+
+---
+
+## 1. Pod란?
 
 **Pod(파드)** 는 쿠버네티스에서 컨테이너를 실행하는 가장 작은 단위입니다.
-"컨테이너를 실행해 줘"라고 쿠버네티스에 요청할 때, 컨테이너를 직접 띄우는 게 아니라
-컨테이너를 **Pod라는 포장지**에 싸서 띄웁니다.
+쿠버네티스는 컨테이너를 직접 띄우지 않고, 컨테이너를 **Pod라는 포장지**에 싸서 띄웁니다.
 
-Pod에 대해 꼭 알아야 할 성질 3가지:
+![Pod 구조](../images/01-pod.svg)
 
-1. **Pod 하나에 컨테이너가 n개 들어갈 수 있다.** (보통은 1개)
-   같은 Pod 안의 컨테이너들은 네트워크를 공유해서, 같은 IP·같은 포트 공간을 씁니다.
+꼭 알아야 할 성질 세 가지입니다.
+
+1. **Pod 하나에 컨테이너가 여러 개 들어갈 수 있다.** (보통은 1개)
+   같은 Pod 안의 컨테이너들은 IP와 포트 공간을 공유합니다. 그래서 서로를 `localhost`로 부를 수 있습니다.
    같은 집에 사는 가족이 주소 하나를 공유하는 것과 같습니다.
-2. **Pod는 자기만의 IP를 가진다.**
-3. **Pod가 재생성되면 IP가 바뀐다.** (호스트네임은 보통 Pod 이름과 같은데, 이름을 그대로
-   다시 쓰면 호스트네임도 그대로입니다. 반대로 2장에서 볼 Deployment처럼 매번 **새 이름**으로
-   Pod를 찍어내는 경우에는 이름이 바뀌니 호스트네임도 매번 바뀝니다.)
-   Pod는 언제든 죽고 다시 만들어질 수 있는 '일회용' 존재입니다.
-   그래서 고정된 주소로 접근하려면 Service(3장)가 필요합니다.
+2. **Pod는 자기만의 IP를 가진다.** 클러스터 안의 다른 Pod가 이 IP로 접속할 수 있습니다.
+3. **Pod는 일회용이다.** 지우고 다시 만들면 IP가 바뀌고, 컨테이너 안에 써 둔 파일도 사라집니다.
 
-> **Python 비유**: Pod는 실행 중인 프로세스와 비슷합니다. `python app.py`를 죽이고 다시 실행하면
-> PID가 바뀌듯, Pod도 다시 만들어지면 IP가 바뀝니다. "PID를 외워서 접근"하면 안 되는 것처럼
-> "Pod IP를 외워서 접근"하면 안 됩니다.
+> **Python에 비유하면**: Pod는 실행 중인 프로세스와 비슷합니다. `python app.py`를 죽이고 다시 실행하면
+> PID가 바뀌고 메모리에 있던 값이 사라지듯, Pod도 다시 만들어지면 IP가 바뀌고 내용이 초기화됩니다.
 
-## 2. 실습 준비
+## 2. YAML 뜯어보기
 
-00장에서 각자 고유한 네임스페이스가 `NS` 환경변수로 이미 준비되어 있고, `k()` 함수
-(`kubectl -n "${NS:?}" "$@"`)도 정의되어 있습니다. 이 교재의 모든 네임스페이스 범위 명령은
-`kubectl` 대신 `k`를 씁니다. 이번 장에서 네임스페이스를 새로 만들거나 지우지 않습니다 —
-그냥 이미 있는 `$NS`를 그대로 씁니다.
-
-```bash
-# 확인만 (별도로 만들 필요 없음)
-echo "현재 네임스페이스: $NS"
-kubectl get namespace "$NS"
-```
-
-## 3. YAML 뜯어보기
-
-아래는 nginx 웹 서버 한 대를 띄우는 Pod 정의입니다. ([examples/01-pod/pod-edu.yaml](../examples/01-pod/pod-edu.yaml))
+nginx 웹 서버 한 대를 띄우는 Pod입니다. ([examples/01-pod/pod.yaml](../examples/01-pod/pod.yaml))
 
 ```yaml
-apiVersion: v1          # 이 리소스가 속한 API 버전. Pod는 v1
-kind: Pod               # 리소스 종류: Pod를 만들겠다
+apiVersion: v1          # Pod는 v1 API에 속한다
+kind: Pod               # 리소스 종류: Pod
 metadata:
-  name: pod-edu01       # Pod 이름 (클러스터에서 이 이름으로 조회/삭제)
+  name: web             # Pod 이름. 이 이름으로 조회하고 삭제한다
   labels:
-    app: edu01-web      # 레이블: 분류용 꼬리표 (아래 6절 참고)
-spec:                   # "원하는 상태"의 본문
-  containers:           # 이 Pod에 담을 컨테이너 목록 (리스트)
-  - name: web           # 컨테이너 이름
-    image: nginx:1.27-alpine        # 사용할 이미지 (경량 nginx, wget/sh 포함)
-    imagePullPolicy: IfNotPresent   # 이미 노드에 이미지가 있으면 다시 받지 않음
-    command:            # 컨테이너가 시작될 때 실행할 명령
-      - "/bin/sh"
-      - "-c"
-      - >               # '>' 는 여러 줄을 한 줄로 이어주는 YAML 문법
-        echo "$(hostname)-$(hostname -i)" > /usr/share/nginx/html/index.html &&
-        nginx -g 'daemon off;'
+    app: web            # 레이블: 분류용 꼬리표 (5절에서 실습)
+spec:                   # 원하는 상태
+  containers:           # 이 Pod에 담을 컨테이너 목록
+  - name: nginx         # 컨테이너 이름
+    image: nginx:1.27-alpine    # 사용할 이미지 (이름:태그)
     ports:
-    - containerPort: 80 # 컨테이너가 사용하는 포트 (문서 성격이 강함)
+    - containerPort: 80         # 컨테이너가 쓰는 포트 (설명용 표기)
 ```
 
-`command` 부분이 하는 일: 웹 서버 첫 페이지(index.html)에 **자기 호스트네임과 IP**를 적어 놓습니다.
-나중에 접속했을 때 "내가 어느 Pod에 접속했는지" 눈으로 확인하기 위한 장치입니다.
+`containerPort`는 "이 컨테이너는 80번을 씁니다"라는 메모에 가깝습니다. 적지 않아도 nginx는 80번으로 응답합니다.
 
-## 4. 실습 ① — 정상: Pod 띄우고 접속해 보기
+## 3. 실습 ① — Pod 만들고 들여다보기
 
-### 4-1. Pod 생성
+### 3-1. 만들기
 
 ```bash
-k apply -f examples/01-pod/pod-edu.yaml
+kubectl apply -f examples/01-pod/pod.yaml
 ```
 
 ```
-pod/pod-edu01 created
+pod/web created
 ```
 
-> `kubectl create -f`도 되지만, `apply`는 "없으면 만들고 있으면 수정"이라 보통 apply를 씁니다.
+> `apply`는 "없으면 만들고, 있으면 YAML대로 수정"합니다. 앞으로 계속 쓸 명령입니다.
 
-### 4-2. 상태 확인
+### 3-2. 상태 보기 — `get`
 
 ```bash
-k wait --for=condition=Ready pod/pod-edu01 --timeout=60s
-k get pod pod-edu01
+kubectl get pod
 ```
 
 ```
-NAME        READY   STATUS    RESTARTS   AGE
-pod-edu01   1/1     Running   0          10s
+NAME   READY   STATUS              RESTARTS   AGE
+web    0/1     ContainerCreating   0          0s
 ```
 
-- `READY 1/1`: 컨테이너 1개 중 1개 준비됨
-- `STATUS Running`: 실행 중. (`ContainerCreating`이면 이미지 내려받는 중이니 잠시 기다리세요)
-
-### 4-3. 기능 검증 — 실제로 응답하는지 확인
-
-Pod IP는 클러스터 안에서만 통하므로, 컨테이너 안에서 직접 호출해 내용을 확인합니다
-(밖에서/다른 Pod에서 접근하는 고정 주소 이야기는 3장 Service에서 제대로 다룹니다).
+몇 초 뒤 다시 실행하면 `Running`으로 바뀝니다.
 
 ```bash
-k exec pod-edu01 -- wget -qO- http://127.0.0.1/
+kubectl get pod -o wide
 ```
 
 ```
-pod-edu01-10.244.1.23
+NAME   READY   STATUS    RESTARTS   AGE   IP               NODE         NOMINATED NODE   READINESS GATES
+web    1/1     Running   0          10s   192.168.139.99   oks4.dd.io   <none>           <none>
 ```
 
-자기 호스트네임-IP가 그대로 찍히면 정상입니다. (`localhost`는 환경에 따라 IPv6(`::1`)로 먼저
-풀려 연결이 거부될 수 있어, 항상 `127.0.0.1`처럼 명시적인 IPv4 주소로 호출하는 습관을 들이세요.)
+| 열 | 의미 |
+|---|---|
+| `READY 1/1` | 컨테이너 1개 중 1개가 준비됨 |
+| `STATUS` | 현재 상태 (아래 그림 참고) |
+| `RESTARTS` | 컨테이너가 죽어서 다시 시작된 횟수. 계속 늘어나면 문제가 있다는 뜻 |
+| `IP` | Pod의 IP. 클러스터 안에서만 통한다 |
+| `NODE` | 이 Pod가 실행 중인 노드 |
 
-### 4-4. (참고) 외부 노출은 어떻게 하나
+![Pod 상태 흐름](../images/01-pod-status.svg)
 
-여러 사람이 같은 클러스터를 함께 쓰는 공용 실습 환경에서는 `NodePort`로 노드 포트를 직접 여는
-실습을 전원이 동시에 하면 포트가 꼬이기 쉽습니다. 그래서 이 교재에서는 "Pod/컨테이너 안에서
-직접 호출해 확인"하는 방식만 실제로 실행하고, NodePort로 외부에 노출하는 방법은 **개념**으로만
-짚고 넘어갑니다. (NodePort의 포트 구조는 3장에서 Service와 함께 자세히 다룹니다.)
+### 3-3. 자세히 보기 — `describe`
+
+```bash
+kubectl describe pod web
+```
+
+출력이 길지만 **맨 아래 `Events`** 가 가장 중요합니다. Pod가 만들어지는 과정이 시간순으로 적혀 있습니다.
+
+```
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  15s   default-scheduler  Successfully assigned edu-lab/web to oks4.dd.io
+  Normal  Pulled     15s   kubelet            Container image "nginx:1.27-alpine" already present on machine
+  Normal  Created    15s   kubelet            Created container: nginx
+  Normal  Started    15s   kubelet            Started container nginx
+```
+
+[00장](00-시작하기-전에.md)의 구조 그림과 맞춰 읽어 보세요. **스케줄러**(`default-scheduler`)가 노드를 고르고, 그 노드의 **kubelet**이 이미지를 준비해 컨테이너를 만들고 시작했습니다.
+
+### 3-4. 로그 보기 — `logs`
+
+컨테이너가 화면(표준 출력)에 찍은 내용을 봅니다. Python의 `print()` 출력이 여기로 나옵니다.
+
+```bash
+kubectl logs web
+```
+
+```
+...
+2026/11/20 10:14:51 [notice] 1#1: start worker process 31
+2026/11/20 10:14:51 [notice] 1#1: start worker process 32
+```
+
+> `kubectl logs -f web`처럼 `-f`를 붙이면 로그를 실시간으로 따라갑니다. 빠져나올 때는 `Ctrl+C`.
+
+### 3-5. 안에서 명령 실행하기 — `exec`
+
+컨테이너 안에서 명령을 실행합니다. 웹 서버가 실제로 응답하는지 컨테이너 안에서 확인해 봅니다.
+
+```bash
+kubectl exec web -- hostname
+kubectl exec web -- wget -qO- http://127.0.0.1/
+```
+
+```
+web
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+...
+```
+
+- `--` 뒤가 컨테이너 안에서 실행할 명령입니다.
+- 호스트네임이 Pod 이름(`web`)과 같다는 점을 기억해 두세요.
+
+셸로 직접 들어가 볼 수도 있습니다. 나올 때는 `exit`을 입력합니다.
 
 ```text
-# 개념 참고용 — 공용 환경에서는 실행하지 않음
-kubectl expose pod pod-edu01 --type=NodePort --name=pod-edu01-svc
-kubectl get svc pod-edu01-svc
-# NAME             TYPE       CLUSTER-IP    EXTERNAL-IP   PORT(S)        AGE
-# pod-edu01-svc    NodePort   10.111.13.3   <none>        80:30770/TCP   8s
-#
-# 80:30770의 의미: 모든 노드의 30770 포트(환경마다 다름)로 들어온 요청이 Pod의 80 포트로 전달됨.
-# 브라우저에서 http://<노드IP>:30770 으로 접속하면 Pod의 호스트네임-IP가 보임.
+kubectl exec -it web -- sh
+/ # ls /usr/share/nginx/html
+50x.html    index.html
+/ # exit
 ```
 
-## 5. 꼭 알아야 할 kubectl 명령 6가지
+### 3-6. 다른 Pod에서 접속하기
 
-Pod를 다루는 기본기이자, 이후 모든 리소스에 똑같이 적용되는 패턴입니다.
+Pod IP는 클러스터 안에서 통합니다. 임시 Pod를 하나 띄워서 `web`에 접속해 봅니다.
 
-```text
-# 1) 생성/수정
-k apply -f pod-edu.yaml
+```bash
+POD_IP=$(kubectl get pod web -o jsonpath='{.status.podIP}')
+echo $POD_IP
 
-# 2) 목록 보기
-k get pod
-
-# 3) 상세 정보를 YAML로 보기 (현재 상태 포함)
-k get pod pod-edu01 -oyaml
-
-# 4) 상세 설명 + 이벤트 로그 보기 (문제 생기면 제일 먼저 볼 것!)
-k describe pod pod-edu01
-
-# 5) 컨테이너의 출력(로그) 보기 (print 디버깅의 그 로그)
-k logs pod/pod-edu01
-
-# 6) 컨테이너 안에 들어가기 (SSH처럼, 대화형 터미널이 있을 때)
-k exec pod-edu01 -it -- sh
-
-# 삭제
-k delete pod pod-edu01
+kubectl run client --rm -i --restart=Never --image=busybox:1.36 -- wget -qO- http://$POD_IP/
 ```
 
-> **트러블슈팅 공식**: Pod가 이상하면 ① `describe`로 이벤트 확인 → ② `logs`로 앱 출력 확인
-> → ③ `exec`로 들어가서 직접 확인. 이 순서만 기억해도 웬만한 문제는 원인을 찾습니다.
-> 바로 아래 6절에서 이 공식을 실제로 써 봅니다.
+```
+192.168.139.99
+<!DOCTYPE html>
+<html>
+<head>
+<title>Welcome to nginx!</title>
+...
+pod "client" deleted
+```
 
-## 6. Label — 리소스에 붙이는 꼬리표
+- `-o jsonpath='{...}'`는 YAML에서 원하는 값 하나만 뽑아내는 옵션입니다.
+- `--rm`은 명령이 끝나면 임시 Pod를 자동으로 지우라는 뜻입니다. 이 "일회용 클라이언트" 패턴은 앞으로 자주 씁니다.
 
-**레이블(Label)** 은 리소스에 붙이는 `key=value` 꼬리표입니다. 시스템 동작에 직접적인 의미는 없지만,
-"이 꼬리표가 붙은 것들만 골라줘"라는 **선택(select)** 에 쓰입니다. 앞으로 배울 Service, Deployment가
-전부 레이블로 Pod를 찾아내기 때문에 매우 중요합니다.
+접속 기록이 `web`의 로그에 남았는지 확인합니다.
 
-> **Python 비유**: 객체마다 붙은 태그로 필터링하는 것과 같습니다.
-> `[p for p in pods if p.labels.get("app") == "edu01-web"]`
+```bash
+kubectl logs web --tail=2
+```
+
+```
+127.0.0.1 - - [20/Nov/2026:10:14:52 +0000] "GET / HTTP/1.1" 200 615 "-" "Wget" "-"
+192.168.96.73 - - [20/Nov/2026:10:14:53 +0000] "GET / HTTP/1.1" 200 615 "-" "Wget" "-"
+```
+
+첫 줄은 3-5에서 컨테이너 안에서 호출한 것(`127.0.0.1`), 둘째 줄은 `client` Pod의 IP에서 온 요청입니다.
+
+## 4. 실습 ② — Pod는 일회용이다
+
+Pod 안의 파일을 바꾼 다음, Pod를 지우고 다시 만들면 어떻게 되는지 봅니다.
+
+```bash
+# 첫 페이지 내용을 바꾼다
+kubectl exec web -- sh -c 'echo "hello from web" > /usr/share/nginx/html/index.html'
+kubectl exec web -- wget -qO- http://127.0.0.1/
+```
+
+```
+hello from web
+```
+
+지금 IP를 기억해 두고(`192.168.139.99`), Pod를 지웠다가 **같은 YAML로** 다시 만듭니다.
+
+```bash
+kubectl delete pod web
+kubectl apply -f examples/01-pod/pod.yaml
+kubectl wait --for=condition=Ready pod/web --timeout=60s
+kubectl get pod -o wide
+```
+
+```
+NAME   READY   STATUS    RESTARTS   AGE   IP              NODE         NOMINATED NODE   READINESS GATES
+web    1/1     Running   0          3s    192.168.96.98   oks5.dd.io   <none>           <none>
+```
+
+```bash
+kubectl exec web -- wget -qO- http://127.0.0.1/ | grep title
+```
+
+```
+<title>Welcome to nginx!</title>
+```
+
+**관찰한 것**
+
+- 이름은 같지만 **IP가 바뀌었습니다** (`192.168.139.99` → `192.168.96.98`). 다른 노드에 뜰 수도 있습니다.
+- 바꿔 둔 `hello from web`은 **사라지고** 원래 nginx 페이지로 돌아왔습니다.
+
+그래서 이런 질문이 생깁니다. 이 질문들이 다음 장들의 주제입니다.
+
+| 질문 | 해결책 |
+|---|---|
+| Pod가 죽으면 누가 다시 띄워 주나? | [02장 Deployment](02-deployment.md) |
+| IP가 바뀌는데 어떻게 고정된 주소로 접속하나? | [03장 Service](03-service.md) |
+| 파일이 사라지면 데이터는 어디에 저장하나? | [06장 PV/PVC](06-pv-pvc.md) |
+
+> `kubectl wait --for=condition=Ready`는 Pod가 준비될 때까지 기다려 주는 명령입니다. `get`을 반복해서 치는 대신 씁니다.
+
+## 5. 실습 ③ — Label: 리소스에 붙이는 꼬리표
+
+**레이블(Label)** 은 리소스에 붙이는 `key=value` 꼬리표입니다. 그 자체로는 아무 동작도 하지 않지만,
+"이 꼬리표가 붙은 것만 골라 줘"라는 **선택**에 쓰입니다. 앞으로 배울 Deployment와 Service가
+전부 레이블로 Pod를 찾기 때문에 매우 중요합니다.
 
 ```bash
 # 레이블까지 같이 조회
-k get pod --show-labels
+kubectl get pod --show-labels
 ```
 
 ```
-NAME        READY   STATUS    RESTARTS   AGE     LABELS
-pod-edu01   1/1     Running   0          3d17h   app=edu01-web
+NAME   READY   STATUS    RESTARTS   AGE   LABELS
+web    1/1     Running   0          2m    app=web
 ```
 
 ```bash
-# app이라는 key를 가진 Pod만 조회
-k get pod -l app
-
-# app=edu01-web 인 것만 조회
-k get pod -l app=edu01-web
-
 # 레이블 추가
-k label pod pod-edu01 env=dev
+kubectl label pod web env=dev
 
-# 레이블 수정 (이미 있는 key는 --overwrite 필요)
-k label pod pod-edu01 env=prod --overwrite
+# env=dev 레이블이 붙은 Pod만 조회 (-l 은 label selector)
+kubectl get pod -l env=dev
+
+# 이미 있는 key의 값을 바꿀 때는 --overwrite
+kubectl label pod web env=prod --overwrite
+kubectl get pod -l app=web --show-labels
 ```
 
-## 7. 실습 ② — 의도적 오류: 스케줄링 실패 체험 (nodeSelector)
+```
+NAME   READY   STATUS    RESTARTS   AGE   LABELS
+web    1/1     Running   0          2m    app=web,env=prod
+```
 
-실무에서 아주 흔한 사고 중 하나가 "Pod가 `Pending`에서 멈춰 있어요"입니다.
-원인 중 하나가 **존재하지 않는 노드 레이블을 요구하는 nodeSelector**입니다.
-(이 실습에서는 실제 노드에 레이블을 붙이지 않습니다 — 노드 설정은 절대 바꾸지 않습니다.
-클러스터에 애초에 없는 레이블을 요구해서 실패를 재현합니다.)
+```bash
+# 레이블 삭제: key 뒤에 - 를 붙인다
+kubectl label pod web env-
+```
 
-([examples/01-pod/pod-edu-nodeselector.yaml](../examples/01-pod/pod-edu-nodeselector.yaml))
+> **Python에 비유하면**: `[p for p in pods if p.labels.get("app") == "web"]` 같은 필터링입니다.
+
+## 6. 실습 ④ — 컨테이너가 2개인 Pod
+
+1절에서 "같은 Pod의 컨테이너는 IP를 공유한다"고 했습니다. 직접 확인해 봅니다.
+아래 Pod에는 nginx와, 5초마다 nginx를 `127.0.0.1`로 호출하는 `checker` 컨테이너가 함께 들어 있습니다.
+([examples/01-pod/pod-sidecar.yaml](../examples/01-pod/pod-sidecar.yaml))
 
 ```yaml
 spec:
-  nodeSelector:         # 이 레이블이 붙은 노드에만 스케줄
-    gpu: "true"          # 클러스터 어디에도 없는 레이블 (의도적 오류)
   containers:
-  - name: web
-    ...
+  - name: nginx                 # 웹 서버
+    image: nginx:1.27-alpine
+  - name: checker               # 5초마다 옆 컨테이너(nginx)를 localhost로 호출
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args:
+    - |
+      while true; do
+        wget -q -O /dev/null http://127.0.0.1:80/ && echo "$(date +%T) nginx OK" || echo "$(date +%T) nginx FAIL"
+        sleep 5
+      done
 ```
-
-### 7-1. 오류 재현
 
 ```bash
-k delete pod pod-edu01 --ignore-not-found
-k apply -f examples/01-pod/pod-edu-nodeselector.yaml
-k wait pod/pod-edu01 --for=condition=PodScheduled=false --timeout=45s
-k get pod pod-edu01
+kubectl apply -f examples/01-pod/pod-sidecar.yaml
+kubectl wait --for=condition=Ready pod/web-sidecar --timeout=60s
+kubectl get pod
 ```
 
 ```
-NAME        READY   STATUS    RESTARTS   AGE
-pod-edu01   0/1     Pending   0          2s
+NAME          READY   STATUS    RESTARTS   AGE
+web           1/1     Running   0          3m
+web-sidecar   2/2     Running   0          5s
 ```
 
-### 7-2. 관찰 (힌트)
+`READY`가 `2/2`입니다. 컨테이너가 2개이고 둘 다 준비됐다는 뜻입니다.
 
-`STATUS`가 `Running`이 아니라 `Pending`에서 멈춰 있습니다. 5절의 트러블슈팅 공식대로
-`describe`부터 봅니다.
+컨테이너가 여러 개면 `-c 컨테이너이름`으로 대상을 고릅니다.
 
 ```bash
-k describe pod pod-edu01 | grep -A5 "Events:"
+kubectl logs web-sidecar -c checker
+```
+
+```
+10:15:36 nginx OK
+10:15:41 nginx OK
+10:15:46 nginx OK
+```
+
+`checker`는 nginx가 없는 컨테이너인데도 `127.0.0.1:80`으로 nginx에 접속했습니다. 두 컨테이너의 IP도 같습니다.
+
+```bash
+kubectl exec web-sidecar -c checker -- hostname -i
+kubectl exec web-sidecar -c nginx -- hostname -i
+```
+
+```
+192.168.30.222
+192.168.30.222
+```
+
+이렇게 주 컨테이너 옆에서 보조 역할(로그 수집, 프록시 등)을 하는 컨테이너를 **사이드카(sidecar)** 라고 부릅니다.
+
+```bash
+kubectl delete pod web-sidecar
+```
+
+## 7. 고장 내고 고쳐 보기
+
+실무에서는 "Pod를 만들었는데 안 떠요"가 가장 흔한 질문입니다. 일부러 두 가지 고장을 내 봅니다.
+
+> **문제 해결 순서**: ① `kubectl get pod`로 **STATUS** 확인 → ② `kubectl describe pod`의 **Events** 확인 → ③ `kubectl logs`로 앱 출력 확인.
+> 이 순서만 기억해도 대부분의 원인을 찾을 수 있습니다.
+
+### 7-1. 고장 ① — 이미지 이름 오타
+
+```bash
+kubectl apply -f examples/01-pod/pod-bad-image.yaml
+```
+
+20초쯤 기다린 뒤 상태를 봅니다.
+
+```bash
+kubectl get pod
+```
+
+```
+NAME      READY   STATUS             RESTARTS   AGE
+web       1/1     Running            0          5m
+web-bad   0/1     ImagePullBackOff   0          25s
+```
+
+`ErrImagePull` 또는 `ImagePullBackOff`가 보입니다. "이미지를 내려받는 데 실패했다"는 뜻입니다. 왜 실패했는지는 Events에 있습니다.
+
+```bash
+kubectl describe pod web-bad
 ```
 
 ```
 Events:
-  Type     Reason            From               Message
-  ----     ------            ----               -------
-  Warning  FailedScheduling  default-scheduler  0/3 nodes are available: 3 node(s) didn't match Pod's node affinity/selector.
+  Type     Reason     Age                From               Message
+  ----     ------     ----               ----               -------
+  Normal   Scheduled  25s                default-scheduler  Successfully assigned edu-lab/web-bad to oks4.dd.io
+  Normal   Pulling    12s (x2 over 25s)  kubelet            Pulling image "nginx:1.27-alpime"
+  Warning  Failed     11s (x2 over 24s)  kubelet            Failed to pull image "nginx:1.27-alpime": ... docker.io/library/nginx:1.27-alpime: not found
+  Warning  Failed     11s (x2 over 24s)  kubelet            Error: ErrImagePull
+  Normal   BackOff    1s                 kubelet            Back-off pulling image "nginx:1.27-alpime"
+  Warning  Failed     1s                 kubelet            Error: ImagePullBackOff
 ```
 
-→ "didn't match Pod's node affinity/selector"가 보이면, `nodeSelector`(혹은 `affinity`)가 요구하는
-레이블을 가진 노드가 없다는 뜻입니다. 이때 할 일은 노드에 없는 레이블을 억지로 붙이는 게 아니라
-(이건 운영 중인 클러스터를 건드리는 위험한 작업입니다), **YAML의 요구 조건이 실제 클러스터 구성과
-맞는지** 먼저 확인하는 것입니다.
+<details><summary>원인과 해결 방법 (먼저 스스로 생각해 본 뒤 펼쳐 보세요)</summary>
 
-### 7-3. 복구
+`nginx:1.27-alpime: not found` — 태그가 `alpine`이 아니라 `alpime`으로 잘못 적혀 있습니다.
+스케줄링(`Scheduled`)까지는 성공했고, kubelet이 이미지를 받는 단계에서 실패한 것입니다.
+`BackOff`는 "실패했으니 간격을 점점 늘려 가며 다시 시도하는 중"이라는 뜻입니다.
 
-<details><summary>조치하기 전, 원인과 수정할 대상을 먼저 설명해 보세요. 복구 방법 펼치기</summary>
-
-이 실습에서는 nodeSelector 조건 자체가 잘못 설정된 것이므로, nodeSelector 없는 원래 정의로
-되돌립니다.
+YAML의 `image`를 `nginx:1.27-alpine`으로 고쳐서 다시 `apply`하면 됩니다. 여기서는 실습용 Pod이므로 지웁니다.
 
 ```bash
-k delete pod pod-edu01 --ignore-not-found
-k apply -f examples/01-pod/pod-edu.yaml
+kubectl delete pod web-bad
 ```
 
 </details>
 
-### 7-4. 기능 검증
+### 7-2. 고장 ② — 조건에 맞는 노드가 없음
+
+`nodeSelector`는 "이 레이블이 붙은 노드에만 띄워 줘"라는 조건입니다.
+아래 Pod는 `gpu=true` 레이블이 붙은 노드를 요구하지만, 그런 노드는 없습니다.
+([examples/01-pod/pod-nodeselector.yaml](../examples/01-pod/pod-nodeselector.yaml))
+
+```yaml
+spec:
+  nodeSelector:
+    gpu: "true"                  # 이 레이블이 붙은 노드가 없다
+```
 
 ```bash
-k wait --for=condition=Ready pod/pod-edu01 --timeout=60s
-k get pod pod-edu01
-k exec pod-edu01 -- wget -qO- http://127.0.0.1/
+kubectl apply -f examples/01-pod/pod-nodeselector.yaml
+kubectl get pod
 ```
 
 ```
-NAME        READY   STATUS    RESTARTS   AGE
-pod-edu01   1/1     Running   0          5s
-pod-edu01-10.244.1.24
+NAME      READY   STATUS    RESTARTS   AGE
+web       1/1     Running   0          6m
+web-gpu   0/1     Pending   0          5s
 ```
 
-`Running`으로 복구되고, 응답도 다시 정상적으로 돌아오면 복구 완료입니다.
-
-## 8. 실습 정리 (청소)
+아무리 기다려도 `Pending`입니다. 이번에도 Events를 봅니다.
 
 ```bash
-k delete -f examples/01-pod/pod-edu.yaml --ignore-not-found
-k delete -f examples/01-pod/pod-edu-nodeselector.yaml --ignore-not-found
+kubectl describe pod web-gpu
 ```
+
+```
+Events:
+  Type     Reason            Age   From               Message
+  ----     ------            ----  ----               -------
+  Warning  FailedScheduling  5s    default-scheduler  0/5 nodes are available: 1 node(s) had untolerated taint {node-role.kubernetes.io/control-plane: }, 4 node(s) didn't match Pod's node affinity/selector. ...
+```
+
+<details><summary>원인과 해결 방법</summary>
+
+이번에는 **스케줄러** 단계에서 멈췄습니다. 메시지를 풀어 읽으면 이렇습니다.
+
+- `0/5 nodes are available` — 노드 5대 중 쓸 수 있는 노드가 0대
+- `1 node(s) had untolerated taint {...control-plane}` — 1대는 컨트롤 플레인이라 일반 Pod를 받지 않음 ([15장](15-scheduling.md)에서 다룹니다)
+- `4 node(s) didn't match Pod's node affinity/selector` — 나머지 4대는 `nodeSelector` 조건에 맞지 않음
+
+노드에 실제로 어떤 레이블이 있는지는 이렇게 확인합니다.
+
+```bash
+kubectl get nodes --show-labels
+```
+
+해결 방법은 둘 중 하나입니다. ① YAML의 `nodeSelector`를 실제로 있는 레이블로 고치거나 지운다. ② 정말 GPU 노드가 있어야 하는 Pod라면 노드를 준비한다.
+여기서는 실습용 Pod이므로 지웁니다.
+
+```bash
+kubectl delete pod web-gpu
+```
+
+</details>
+
+**두 고장의 차이**
+
+| | 고장 ① 이미지 오타 | 고장 ② 노드 조건 불일치 |
+|---|---|---|
+| STATUS | `ImagePullBackOff` | `Pending` |
+| 멈춘 단계 | kubelet이 이미지를 받는 단계 | 스케줄러가 노드를 고르는 단계 |
+| Events의 Reason | `Failed` (Failed to pull image) | `FailedScheduling` |
+
+## 8. 정리
+
+```bash
+kubectl delete pod web
+kubectl get pod
+```
+
+```
+No resources found in edu-lab namespace.
+```
+
+## 핵심 요약
+
+- Pod는 컨테이너를 감싸는 최소 실행 단위이고, 자기 IP를 가진다.
+- 같은 Pod 안의 컨테이너들은 IP를 공유한다.
+- Pod는 일회용이다. 다시 만들면 IP가 바뀌고 안의 파일이 사라진다.
+- 레이블은 리소스를 골라내기 위한 꼬리표다.
+- 문제가 생기면 `get` → `describe`(Events) → `logs` 순서로 본다.
+
+| 자주 쓰는 명령 | 용도 |
+|---|---|
+| `kubectl apply -f 파일` | 만들기 / 수정하기 |
+| `kubectl get pod [-o wide]` | 목록과 상태 |
+| `kubectl describe pod 이름` | 상세 정보와 Events |
+| `kubectl logs 이름 [-c 컨테이너] [-f]` | 컨테이너 출력 |
+| `kubectl exec [-it] 이름 -- 명령` | 컨테이너 안에서 명령 실행 |
+| `kubectl delete pod 이름` | 삭제 |
 
 ## 확인 문제
 
-1. Pod가 죽고 다시 만들어지면 IP가 바뀐다. 호스트네임도 항상 같이 바뀔까?
-2. Pod 안의 컨테이너가 2개면, 두 컨테이너의 IP는 같을까 다를까?
-3. `nodeSelector`가 가리키는 레이블을 가진 노드가 클러스터에 하나도 없으면 Pod는 어떤 상태가 되는가?
+1. Pod를 지우고 같은 이름으로 다시 만들면 IP는 어떻게 되나요? 안에 써 둔 파일은요?
+2. 컨테이너가 2개인 Pod에서 두 컨테이너의 IP는 같을까요, 다를까요?
+3. `STATUS`가 `ImagePullBackOff`인 Pod의 원인을 찾으려면 어떤 명령의 어느 부분을 봐야 하나요?
+4. `nodeSelector` 조건에 맞는 노드가 하나도 없으면 Pod는 어떤 상태가 되나요?
 
 <details><summary>정답 보기</summary>
 
-1. 아니다. 호스트네임은 보통 Pod 이름이므로, 똑같은 이름으로 다시 만들면 호스트네임은 그대로다. Deployment처럼 매번 새 이름(랜덤 해시)으로 Pod를 찍어낼 때만 호스트네임도 매번 바뀐다. IP는 재생성될 때마다 거의 항상 바뀐다.
-2. 같다. Pod 안의 컨테이너들은 네트워크 네임스페이스를 공유한다 (같은 IP, 같은 포트 공간)
-3. `Pending`. `describe pod`의 Events에 `FailedScheduling`과 `didn't match Pod's node affinity/selector`가 찍힌다.
+1. IP는 바뀌는 것이 보통이고, 컨테이너 안에 써 둔 파일은 사라집니다. Pod는 일회용입니다.
+2. 같습니다. 같은 Pod의 컨테이너들은 네트워크(IP와 포트 공간)를 공유합니다.
+3. `kubectl describe pod 이름`의 맨 아래 `Events`를 봅니다. `Failed to pull image ...` 메시지에 원인이 적혀 있습니다.
+4. `Pending`에서 멈춥니다. Events에 `FailedScheduling`과 `didn't match Pod's node affinity/selector`가 나옵니다.
 </details>
 
 ---

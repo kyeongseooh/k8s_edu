@@ -1,0 +1,13 @@
+# 고장 실습: 어떤 노드에도 없는 레이블을 요구 -> Pending
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-gpu
+  labels:
+    app: web-gpu
+spec:
+  nodeSelector:
+    gpu: "true"                  # 이 레이블이 붙은 노드가 없다
+  containers:
+  - name: nginx
+    image: nginx:1.27-alpine

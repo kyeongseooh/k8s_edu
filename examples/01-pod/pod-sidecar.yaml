@@ -1,0 +1,22 @@
+# 컨테이너 2개가 한 Pod 안에서 네트워크(localhost)를 공유하는 예제
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web-sidecar
+  labels:
+    app: web-sidecar
+spec:
+  containers:
+  - name: nginx                 # 웹 서버
+    image: nginx:1.27-alpine
+    ports:
+    - containerPort: 80
+  - name: checker               # 5초마다 옆 컨테이너(nginx)를 localhost로 호출
+    image: busybox:1.36
+    command: ["sh", "-c"]
+    args:
+    - |
+      while true; do
+        wget -q -O /dev/null http://127.0.0.1:80/ && echo "$(date +%T) nginx OK" || echo "$(date +%T) nginx FAIL"
+        sleep 5
+      done
