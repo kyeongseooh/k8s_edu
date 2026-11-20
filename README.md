@@ -4,6 +4,8 @@
 
 **처음이라면 [00. 실습 환경 준비](docs/00-시작하기-전에.md)부터 시작한다.** 같은 Bash 셸에서 개인 네임스페이스를 가리키는 `k` 함수를 설정한 뒤, 저장소 루트에서 각 장의 명령을 실행한다. 각 장은 `examples/`의 자기 리소스를 만들고 정리하므로 필요한 장만 골라 다시 할 수 있다. 일부러 고장 내는 대상은 내 실습 앱뿐이다.
 
+**기초 다음 과정:** [Kubernetes 위에서 데이터 플랫폼 운영하기](platform/README.md) — 커스텀 이미지와 Harbor부터 별도 GitOps 저장소, Argo CD로 Airflow 생성, Keycloak 권한, Prometheus·Grafana, MinIO·Kubeflow까지 이어집니다.
+
 | 추천 순서 | 읽을 장 | 퇴근 전에 해 볼 일 |
 |---|---|---|
 | ① 첫 배포 | [00 준비](docs/00-시작하기-전에.md) → [01 Pod](docs/01-pod.md) → [02 Deployment](docs/02-deployment.md) → [03 Service](docs/03-service.md) | Pod가 실행되는 것과 Service로 요청이 전달되는 것을 구분한다. |
