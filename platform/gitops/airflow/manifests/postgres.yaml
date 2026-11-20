@@ -41,10 +41,13 @@ spec:
         - name: data
           mountPath: /var/lib/postgresql/data
   volumeClaimTemplates:
-  - metadata:
+  - apiVersion: v1
+    kind: PersistentVolumeClaim
+    metadata:
       name: data
     spec:
       accessModes: [ReadWriteOnce]
+      volumeMode: Filesystem
       storageClassName: nfs-client
       resources:
         requests:
