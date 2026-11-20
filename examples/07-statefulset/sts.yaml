@@ -1,0 +1,45 @@
+# StatefulSet은 Pod마다 고정 DNS 이름을 주기 위해 Headless Service가 필요하다 (08장에서 자세히)
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  clusterIP: None              # Headless Service
+  selector:
+    app: web
+  ports:
+  - port: 80
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: web
+spec:
+  serviceName: web             # 위 Headless Service의 이름
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 80
+        volumeMounts:
+        - name: data
+          mountPath: /usr/share/nginx/html
+  volumeClaimTemplates:        # Pod마다 PVC를 하나씩 찍어 내는 틀
+  - metadata:
+      name: data               # PVC 이름은 data-web-0, data-web-1, ... 이 된다
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi

@@ -1,259 +1,335 @@
 # 07. StatefulSet — 이름과 데이터가 유지되어야 하는 앱
 
-## 0. 이 장의 전제
+**이 장을 마치면**
 
-00장에서 설정한 `EDU_CONTEXT`, `NS`, `k()`를 그대로 씁니다. 이 장은 **PV/PVC를 쓰지 않습니다.**
-StatefulSet의 핵심인 "고정된 이름"을 **emptyDir**로 체험하고, emptyDir이 실제 PVC(6장)와
-무엇이 다른지 직접 비교합니다. 특정 노드나 호스트를 지정하지 않으므로 스케줄러가 알아서 배치합니다.
+- Deployment와 StatefulSet의 차이를 설명하고, 언제 무엇을 쓸지 고를 수 있습니다.
+- StatefulSet의 Pod가 고정된 이름과 자기만의 저장소를 갖는 것을 확인합니다.
+- Pod를 지우거나 개수를 줄였다 늘려도 데이터가 제자리로 돌아오는 것을 확인합니다.
 
-```bash
-k auth can-i create statefulsets.apps
-```
+---
 
-## 1. 개념
+## 1. 왜 필요한가
 
-Deployment는 Pod들을 "모두 똑같은 일회용"으로 취급합니다. 웹 서버처럼 어느 Pod가 응답해도
-상관없는(**무상태, stateless**) 앱에는 완벽하지만, DB처럼 각자 **자기 데이터와 정체성**을 가져야 하는
-(**유상태, stateful**) 앱에는 맞지 않습니다.
+Deployment의 Pod들은 **서로 구별되지 않습니다.** 이름은 무작위이고, 어느 것이 죽어도 아무 Pod나 새로 만들면 됩니다. 웹 서버처럼 상태가 없는(stateless) 앱에 잘 맞습니다.
 
-**StatefulSet(스테이트풀셋, 줄여서 sts)** 은 Pod의 **상태를 유지해 주는** 컨트롤러입니다.
+하지만 데이터베이스 클러스터 같은 앱은 사정이 다릅니다.
 
-- **Pod 이름이 고정**: `ch07-web-0`, `ch07-web-1`, `ch07-web-2` 처럼 번호가 붙고, 재시작해도 같은 이름 유지
-- **순서 보장**: 0번부터 차례로 생성(0번이 Ready 돼야 1번 시작), 역순으로 종료
-- **Pod마다 전용 볼륨 틀**: `volumeClaimTemplates`로 Pod별 PVC를 자동 생성할 수 있음 (이 장은 사용하지 않고, 6장에서 다룬 실제 PVC와 이름만 비교)
+- 각 인스턴스가 **자기 데이터**를 가지고 있어서, 다시 떠도 같은 데이터를 물려받아야 한다.
+- "1번이 주(primary), 2번·3번이 복제본"처럼 **누가 누구인지** 구별되어야 한다.
+- 주 인스턴스가 먼저 뜨고 복제본이 나중에 뜨는 식으로 **순서**가 필요하다.
 
-> **비유**: Deployment의 Pod들은 "교대 근무 아르바이트"(아무나 대체 가능),
-> StatefulSet의 Pod들은 "각자 자기 사번(이름)이 있는 정직원"입니다.
-> MySQL 클러스터에서 "0번이 프라이머리, 1·2번이 레플리카" 같은 역할 구분이 가능해집니다.
+**StatefulSet(스테이트풀셋)** 은 이런 상태가 있는(stateful) 앱을 위한 컨트롤러입니다.
 
-### Deployment와 비교해 보기
+![Deployment와 StatefulSet 비교](../images/07-statefulset.svg)
 
-Deployment의 Pod 이름은 랜덤 해시가 붙고, 재시작하면 바뀝니다.
-
-```
-edu-deployment-6c7cbd7b6-s2jgm    ← 재시작하면 뒷부분이 바뀜
-```
-
-StatefulSet의 Pod는 `-0`, `-1`, `-2` 번호가 붙고 유지됩니다.
-
-```
-ch07-web-0              ← 재시작해도 ch07-web-0
-```
-
-중요한 건 "이름"만 유지된다는 것이고, **"같은 이름 = 같은 Pod"는 아닙니다.** Pod가 재생성되면
-이름은 같아도 내부적으로는 완전히 새 객체(새 `UID`)입니다. 이 장의 실습은 이 차이를 직접 봅니다.
+| | Deployment | StatefulSet |
+|---|---|---|
+| Pod 이름 | `web-7d9f-x2k4p` (무작위) | `web-0`, `web-1`, `web-2` (번호 고정) |
+| 다시 만들어지면 | 새 이름 | **같은 이름** |
+| 저장소 | 모든 Pod가 PVC 하나를 공유 | **Pod마다 전용 PVC** |
+| 생성 순서 | 동시에 | 0 → 1 → 2 순서대로 |
+| 줄일 때 | 아무거나 | 번호가 큰 것부터 |
+| 어울리는 앱 | 웹 서버, API 서버 | DB, 메시지 큐(Kafka), 검색 엔진 |
 
 ## 2. YAML 뜯어보기
 
-nginx 3대를 각자 "전용 디렉토리"(emptyDir)와 함께 띄우는 예시입니다.
-([examples/07-statefulset/sts-web.yaml](../examples/07-statefulset/sts-web.yaml))
+([examples/07-statefulset/sts.yaml](../examples/07-statefulset/sts.yaml))
 
 ```yaml
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: ch07-web
+  name: web
 spec:
-  serviceName: ch07-web        # ★ sts 전용: 연결할 headless Service 이름 (8장에서 설명)
+  serviceName: web             # 짝이 되는 Headless Service의 이름 (08장에서 자세히)
   replicas: 3
   selector:
     matchLabels:
-      app: ch07-web            # template의 레이블과 반드시 일치해야 함
-  template:
+      app: web
+  template:                    # 여기까지는 Deployment와 같다
     metadata:
       labels:
-        app: ch07-web
+        app: web
     spec:
-      terminationGracePeriodSeconds: 10
       containers:
       - name: nginx
         image: nginx:1.27-alpine
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 80
-          name: web
         volumeMounts:
-        - name: www
+        - name: data
           mountPath: /usr/share/nginx/html
-      volumes:
-      - name: www
-        emptyDir: {}            # ★ PVC가 아니라 emptyDir — Pod가 다시 생기면 이 안의 내용은 사라짐
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: ch07-web
-  labels:
-    app: ch07-web
-spec:
-  clusterIP: None              # ★ headless 서비스 (8장)
-  selector:
-    app: ch07-web
-  ports:
-  - port: 80
-    name: web
+  volumeClaimTemplates:        # Pod마다 PVC를 하나씩 찍어 내는 틀
+  - metadata:
+      name: data               # PVC 이름은 data-web-0, data-web-1, ... 이 된다
+    spec:
+      accessModes:
+      - ReadWriteOnce
+      resources:
+        requests:
+          storage: 1Gi
 ```
 
-Deployment와 다른 포인트 2가지만 기억하세요.
+Deployment와 다른 점은 두 가지입니다.
 
-1. `serviceName` + headless Service가 **필수** — Pod 하나하나에 고정 DNS 이름을 주기 위해 (8장)
-2. `selector.matchLabels` = `template.metadata.labels` 가 반드시 일치해야 함 (Deployment·DaemonSet도 동일한 규칙)
+- **`serviceName`**: Pod마다 고정된 주소를 주기 위한 Service 이름입니다. 같은 파일에 함께 들어 있습니다. [08장](08-headless-service.md)에서 다룹니다.
+- **`volumeClaimTemplates`**: `template`이 Pod를 찍어 내는 틀이듯, 이것은 **PVC를 찍어 내는 틀**입니다. [06장](06-pv-pvc.md)에서는 PVC를 직접 만들었지만, 여기서는 Pod 하나당 PVC 하나가 자동으로 만들어집니다.
 
-## 3. 실습 — 정상 기준: 이름과 UID 관찰
+## 3. 실습 ① — 순서대로 만들어지는 Pod
 
 ```bash
-k apply -f examples/07-statefulset/sts-web.yaml
-k rollout status statefulset/ch07-web --timeout=120s
-k get pod -l app=ch07-web
+kubectl apply -f examples/07-statefulset/sts.yaml
+kubectl get pod
 ```
 
 ```
-NAME         READY   STATUS    RESTARTS   AGE
-ch07-web-0   1/1     Running   0          54s
-ch07-web-1   1/1     Running   0          40s
-ch07-web-2   1/1     Running   0          26s
+NAME    READY   STATUS              RESTARTS   AGE
+web-0   0/1     ContainerCreating   0          2s
 ```
 
-이름이 `ch07-web-0`, `ch07-web-1`, `ch07-web-2` 로 **순서대로** 생성됩니다 (`AGE`가 0→1→2번
-순으로 짧아지는 것이 "0번이 Ready 돼야 1번이 시작된다"는 순서 보장의 증거입니다).
+몇 초 간격으로 다시 조회해 보세요.
 
 ```bash
-# "이름"이 아니라 "이 객체가 맞는지"를 구분하는 고유 식별자: UID
-k get pod ch07-web-0 -o jsonpath='{.metadata.uid}{"\n"}'
+kubectl get pod
 ```
 
 ```
-3f1e2a9c-....
+NAME    READY   STATUS    RESTARTS   AGE
+web-0   1/1     Running   0          6s
+web-1   1/1     Running   0          3s
+web-2   0/1     Pending   0          0s
 ```
 
-이 UID를 기억해 둡니다. 아래에서 Pod를 지웠다가 다시 만든 뒤 **이름은 같지만 UID는 달라지는지**
-확인합니다.
-
-## 4. 오류 주입 — Pod 삭제로 emptyDir 데이터 날리기
+Deployment는 Pod 3개를 한꺼번에 만들지만, StatefulSet은 **`web-0`이 준비된 뒤에 `web-1`, 그다음 `web-2`** 순서로 만듭니다.
 
 ```bash
-# web-0에 파일 기록 + HTTP로도 응답되는지 확인
-k exec ch07-web-0 -- sh -c "echo 'ch07-web-0의 데이터' > /usr/share/nginx/html/test.txt"
-k exec ch07-web-0 -- wget -qO- http://localhost/test.txt
+kubectl rollout status statefulset/web
+kubectl get statefulset,pod,pvc
 ```
 
 ```
-ch07-web-0의 데이터
+NAME                   READY   AGE
+statefulset.apps/web   3/3     9s
+
+NAME        READY   STATUS    RESTARTS   AGE
+pod/web-0   1/1     Running   0          9s
+pod/web-1   1/1     Running   0          6s
+pod/web-2   1/1     Running   0          3s
+
+NAME                               STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   ...
+persistentvolumeclaim/data-web-0   Bound    pvc-00fc5560-2be6-41fd-aa89-49fe959cc5a1   1Gi        RWO            nfs-client     ...
+persistentvolumeclaim/data-web-1   Bound    pvc-fcb1155f-a5d0-4a18-987e-1cb1e11cd638   1Gi        RWO            nfs-client     ...
+persistentvolumeclaim/data-web-2   Bound    pvc-680a0b8b-fe3e-43c8-ab5d-9ac476c413f4   1Gi        RWO            nfs-client     ...
+```
+
+- Pod 이름은 **`StatefulSet이름-번호`** 입니다. 중간에 ReplicaSet도 없습니다.
+- PVC가 3개 생겼습니다. 이름은 **`볼륨이름-Pod이름`** (`data-web-0`)입니다. PVC마다 PV도 하나씩 연결됐습니다.
+
+## 4. 실습 ② — Pod가 다시 만들어져도 이름과 데이터는 그대로
+
+각 Pod가 자기 볼륨에 자기 이름을 적게 합니다.
+
+```bash
+for i in 0 1 2; do
+  kubectl exec web-$i -- sh -c 'echo "I am $(hostname)" > /usr/share/nginx/html/index.html'
+done
+
+for i in 0 1 2; do kubectl exec web-$i -- wget -qO- http://127.0.0.1/; done
+```
+
+```
+I am web-0
+I am web-1
+I am web-2
+```
+
+Pod마다 내용이 다릅니다. 저장소를 공유하지 않고 **각자 자기 것**을 쓰고 있기 때문입니다.
+
+이제 `web-1`을 지웁니다. 지우기 전에 IP를 봐 둡니다.
+
+```bash
+kubectl get pod -o wide
+kubectl delete pod web-1
+kubectl wait --for=condition=Ready pod/web-1 --timeout=60s
+kubectl get pod -o wide
+```
+
+```
+NAME    READY   STATUS    RESTARTS   AGE   IP                NODE         ...
+web-0   1/1     Running   0          13s   192.168.96.115    oks5.dd.io   ...
+web-1   1/1     Running   0          2s    192.168.139.113   oks4.dd.io   ...
+web-2   1/1     Running   0          7s    192.168.30.234    oks2.dd.io   ...
 ```
 
 ```bash
-# web-0을 "일부러" 삭제 (장애 상황 가정: 노드 장애, OOM 등으로 Pod가 사라졌다고 가정)
-OLD_UID=$(k get pod ch07-web-0 -o jsonpath='{.metadata.uid}')
-k delete pod ch07-web-0
-k wait --for=condition=Ready pod/ch07-web-0 --timeout=60s
-NEW_UID=$(k get pod ch07-web-0 -o jsonpath='{.metadata.uid}')
-
-echo "이름은 동일: ch07-web-0"
-echo "OLD_UID=$OLD_UID"
-echo "NEW_UID=$NEW_UID"
-if [[ "$OLD_UID" != "$NEW_UID" ]]; then
-  echo "→ 다른 객체(UID 변경)로 재생성됨"
-else
-  echo "→ 예상과 다름: UID가 바뀌지 않았다 (확인 필요)"
-fi
-
-# 예상된 실패: emptyDir은 Pod와 함께 사라졌으므로 파일이 없어야 정상
-k exec ch07-web-0 -- wget -qO- http://localhost/test.txt || true
-k exec ch07-web-0 -- cat /usr/share/nginx/html/test.txt || true
+kubectl exec web-1 -- wget -qO- http://127.0.0.1/
 ```
 
 ```
-이름은 동일: ch07-web-0
-OLD_UID=3f1e2a9c-....
-NEW_UID=7b84d110-....
-→ 다른 객체(UID 변경)로 재생성됨
-cat: can't open '/usr/share/nginx/html/test.txt': No such file or directory
+I am web-1
 ```
 
-**관찰**: `ch07-web-0`이라는 **이름**은 StatefulSet이 그대로 지켜 줬지만, `UID`는 바뀌었고
-(완전히 새로운 Pod 객체) `test.txt`도 사라졌습니다. emptyDir은 "이 Pod 인스턴스가 살아있는 동안만"
-유지되는 저장소라서, Pod가 재생성되면 새 emptyDir로 다시 시작합니다.
+**관찰한 것**
 
-## 5. 복구 — 파일을 다시 쓰고 HTTP로 기능 확인
-
-<details><summary>힌트와 복구</summary>
-
-이름이 같다고 데이터도 돌아오는 게 아니므로, **다시 써넣는 것**이 유일한 복구 방법입니다
-(실제 운영에서는 이 지점에서 "그래서 PVC가 필요하다"는 결론에 도달합니다 — 6장 참고).
+- 새로 만들어진 Pod의 이름이 **똑같이 `web-1`** 입니다 (`AGE`가 2초인 것으로 새 Pod임을 알 수 있습니다).
+- IP는 바뀌었습니다 (`192.168.139.80` → `192.168.139.113`).
+- 데이터는 그대로 `I am web-1`입니다. 새 `web-1`이 **예전 `web-1`의 PVC(`data-web-1`)를 다시 붙였기** 때문입니다.
 
 ```bash
-k exec ch07-web-0 -- sh -c "echo 'ch07-web-0의 데이터(복구됨)' > /usr/share/nginx/html/test.txt"
-k exec ch07-web-0 -- wget -qO- http://localhost/test.txt
+kubectl describe pod web-1 | grep -A4 'Volumes:'
 ```
 
 ```
-ch07-web-0의 데이터(복구됨)
+Volumes:
+  data:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  data-web-1
+    ReadOnly:   false
 ```
 
-HTTP 응답이 다시 정상으로 돌아오면 **기능은 복구된 것**입니다. 다만 이번에 쓴 데이터도
-Pod가 또 재생성되면 똑같이 사라집니다 — emptyDir은 "기능 복구"는 가능해도 "데이터 보존"은
-해 주지 않는다는 뜻입니다.
+"이름 → PVC"의 짝이 고정되어 있다는 것이 StatefulSet의 핵심입니다.
+
+## 5. 실습 ③ — 줄였다가 늘리기
+
+```bash
+kubectl scale statefulset web --replicas=1
+kubectl get pod
+```
+
+```
+NAME    READY   STATUS        RESTARTS   AGE
+web-0   1/1     Running       0          15s
+web-1   0/1     Terminating   0          4s
+```
+
+**번호가 큰 것부터**(`web-2` → `web-1`) 차례로 사라집니다. 잠시 뒤 Pod와 PVC를 확인합니다.
+
+```bash
+kubectl get pod
+kubectl get pvc
+```
+
+```
+NAME    READY   STATUS    RESTARTS   AGE
+web-0   1/1     Running   0          25s
+
+NAME         STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   ...
+data-web-0   Bound    pvc-00fc5560-2be6-41fd-aa89-49fe959cc5a1   1Gi        RWO            nfs-client     ...
+data-web-1   Bound    pvc-fcb1155f-a5d0-4a18-987e-1cb1e11cd638   1Gi        RWO            nfs-client     ...
+data-web-2   Bound    pvc-680a0b8b-fe3e-43c8-ab5d-9ac476c413f4   1Gi        RWO            nfs-client     ...
+```
+
+Pod는 1개로 줄었지만 **PVC 3개는 그대로 남아 있습니다.** StatefulSet은 데이터를 함부로 지우지 않습니다. 다시 3개로 늘려 봅니다.
+
+```bash
+kubectl scale statefulset web --replicas=3
+kubectl rollout status statefulset/web
+kubectl exec web-2 -- wget -qO- http://127.0.0.1/
+```
+
+```
+I am web-2
+```
+
+돌아온 `web-2`가 남아 있던 `data-web-2`를 다시 붙여서, 예전 데이터를 그대로 가지고 있습니다.
+
+## 6. 고장 내고 고쳐 보기 — Pod가 하나만 뜨고 멈췄다
+
+```bash
+kubectl apply -f examples/07-statefulset/sts-broken.yaml
+sleep 8
+kubectl get pod -l app=db
+```
+
+```
+NAME   READY   STATUS    RESTARTS   AGE
+db-0   0/1     Pending   0          8s
+```
+
+`replicas: 3`인데 `db-0` 하나만 있고, 그것도 `Pending`입니다. 원인을 찾아보세요. (힌트: [06장](06-pv-pvc.md) 6절)
+
+<details><summary>원인과 해결 방법</summary>
+
+```bash
+kubectl describe pod db-0
+kubectl get pvc -l app=db
+kubectl describe pvc data-db-0
+```
+
+```
+# Pod의 Events
+Warning  FailedScheduling  8s  default-scheduler  0/5 nodes are available: pod has unbound immediate PersistentVolumeClaims. ...
+
+# PVC 상태
+NAME        STATUS    VOLUME   CAPACITY   ACCESS MODES   STORAGECLASS   ...
+data-db-0   Pending                                      fast-ssd       ...
+
+# PVC의 Events
+Warning  ProvisioningFailed  8s  persistentvolume-controller  storageclass.storage.k8s.io "fast-ssd" not found
+```
+
+`volumeClaimTemplates`에 없는 StorageClass(`fast-ssd`)가 적혀 있어서 `db-0`의 PVC가 만들어지지 못했습니다.
+
+`db-1`, `db-2`가 아예 보이지 않는 이유도 여기서 나옵니다. StatefulSet은 **앞 번호가 준비되어야 다음 번호를 만들기** 때문에, `db-0`이 멈추면 뒤가 전부 멈춥니다.
+
+`volumeClaimTemplates`는 만든 뒤에 고칠 수 없습니다. StatefulSet을 지우고 YAML을 고쳐 다시 만들어야 합니다.
+이때 **이미 만들어진 PVC는 자동으로 지워지지 않으므로** 직접 지워야 합니다. 그대로 두면 다시 만들어도 예전의 잘못된 PVC를 계속 쓰게 됩니다.
+
+```bash
+kubectl delete -f examples/07-statefulset/sts-broken.yaml
+kubectl delete pvc -l app=db
+```
+
 </details>
 
-| | emptyDir (이 장) | 실제 PVC (6장) |
-|---|---|---|
-| Pod 재생성 후 이름 | 유지 | 유지 |
-| Pod 재생성 후 UID | **변경** (새 객체) | **변경** (새 객체) |
-| Pod 재생성 후 데이터 | **사라짐** | **유지됨** |
-| 저장 위치 | Pod가 뜬 노드의 임시 공간 | 네트워크 스토리지(NFS 등)의 독립 공간 |
+## 7. 정리
 
-**결론**: StatefulSet이 보장하는 것은 "이름과 순서"뿐이며, Pod 자체의 정체성(UID)이나 데이터까지
-지켜 주지는 않습니다. 데이터까지 유지하려면 `volumeClaimTemplates`로 **실제 PVC**를 Pod마다
-붙여야 합니다 (문법은 6장의 PVC와 동일하고, StatefulSet이 `<이름>-<pod이름>` 규칙으로 자동
-생성해 준다는 점만 다릅니다).
-
-```yaml
-# 참고용 — 이 장에서는 실제로 적용하지 않습니다.
-volumeClaimTemplates:
-- metadata:
-    name: www
-  spec:
-    accessModes: ["ReadWriteOnce"]
-    storageClassName: nfs-client
-    resources:
-      requests:
-        storage: 1Gi
-```
-
-## 6. 그래서 언제 무엇을 쓰나?
-
-| | Deployment | StatefulSet |
-|---|---|---|
-| Pod 이름 | 랜덤, 재시작 시 변경 | 번호 고정 (`-0`, `-1`...) |
-| 볼륨 | 공유하거나 없음 | Pod별 전용 볼륨 틀 가능 (`volumeClaimTemplates`) |
-| 생성 순서 | 동시에 | 순서대로 |
-| 적합한 앱 | 웹 서버, API, 워커 | DB(MySQL, PostgreSQL), Kafka, ZooKeeper, Redis 등 |
-
-**"Pod가 서로 구분되어야 하고, 각자 데이터를 가진다"** → StatefulSet(+실제 PVC). 그 외에는 Deployment.
-
-> 롤링 업데이트/롤백은 2장의 Deployment와 같은 개념이 StatefulSet에도 그대로 적용됩니다
-> (`kubectl set image`, `kubectl rollout undo` 등). 차이는 **교체 순서가 역순**(번호가 큰
-> Pod부터)이라는 점뿐입니다.
-
-## 7. 실습 정리
+StatefulSet을 지워도 PVC는 남습니다. 따로 지웁니다.
 
 ```bash
-k delete -f examples/07-statefulset/sts-web.yaml --ignore-not-found
+kubectl delete -f examples/07-statefulset/sts.yaml
+kubectl get pvc
+kubectl delete pvc -l app=web
 ```
+
+PV의 회수 정책이 `Retain`인 환경이라면 PV도 `Released` 상태로 남습니다. [06장](06-pv-pvc.md) 7절에서 했던 것처럼 정리합니다.
+
+```bash
+kubectl get pv | grep -E 'NAME|edu-lab'
+
+for pv in $(kubectl get pv -o jsonpath='{range .items[?(@.spec.claimRef.namespace=="edu-lab")]}{.metadata.name}{"\n"}{end}'); do
+  kubectl patch pv $pv -p '{"spec":{"persistentVolumeReclaimPolicy":"Delete"}}'
+done
+```
+
+## 8. 알아 두면 좋은 것
+
+- **StatefulSet이 데이터 복제까지 해 주지는 않습니다.** StatefulSet은 "고정된 이름과 전용 저장소"를 제공할 뿐입니다.
+  `web-0`의 데이터를 `web-1`로 복제하는 것은 앱(예: MySQL 복제, Kafka)이 스스로 해야 합니다.
+- **업데이트는 역순**입니다. 이미지를 바꾸면 번호가 큰 Pod부터(`web-2` → `web-1` → `web-0`) 하나씩 교체됩니다.
+- **모든 Pod가 같은 PVC 하나를 공유해도 된다면** StatefulSet이 아니라 Deployment + PVC(`ReadWriteMany`)로 충분합니다.
+
+## 핵심 요약
+
+- StatefulSet의 Pod는 `이름-0`, `이름-1`처럼 번호가 붙은 고정된 이름을 가진다.
+- `volumeClaimTemplates`로 Pod마다 전용 PVC가 만들어진다.
+- Pod가 다시 만들어지면 같은 이름으로, 같은 PVC를 붙여서 돌아온다. IP는 바뀐다.
+- 0번부터 순서대로 만들고, 큰 번호부터 줄인다. 앞 번호가 멈추면 뒤도 멈춘다.
+- StatefulSet을 지우거나 줄여도 PVC는 남는다.
 
 ## 확인 문제
 
-1. StatefulSet의 Pod `ch07-web-1`을 삭제하면 새 Pod의 이름은? UID는?
-2. "이름이 같다"와 "같은 Pod다"는 같은 뜻인가?
-3. emptyDir을 쓴 StatefulSet에서 Pod가 재생성되면 이름과 데이터 중 무엇이 유지되는가? 데이터까지 유지하려면 무엇을 써야 하는가?
+1. StatefulSet `db`의 `replicas`가 3이면 Pod 이름은 무엇인가요?
+2. `db-1`을 지우면 새로 만들어지는 Pod의 이름, IP, 데이터는 각각 어떻게 되나요?
+3. `replicas`를 3에서 1로 줄이면 어떤 Pod가 남나요? 사라진 Pod의 PVC는 어떻게 되나요?
+4. 웹 서버 5대를 띄우려고 합니다. Deployment와 StatefulSet 중 무엇을 써야 하나요?
 
 <details><summary>정답 보기</summary>
 
-1. 이름은 `ch07-web-1`로 동일하게 재생성되지만, UID는 매번 새로 발급된다 (다른 객체).
-2. 아니다. 이름은 StatefulSet이 보장해 주는 규칙일 뿐이고, Pod 객체 자체는 재생성될 때마다 새 UID를 가진 완전히 새로운 객체다.
-3. 이름만 유지되고 데이터는 사라진다. 데이터까지 유지하려면 `volumeClaimTemplates`로 Pod마다 실제 PVC를 붙여야 한다 (6장).
+1. `db-0`, `db-1`, `db-2`입니다.
+2. 이름은 그대로 `db-1`, IP는 바뀌고, 데이터는 같은 PVC(`볼륨이름-db-1`)를 다시 붙이므로 유지됩니다.
+3. `db-0`이 남습니다. 큰 번호부터 사라집니다. 사라진 Pod의 PVC는 남아 있다가, 다시 늘리면 같은 번호의 Pod에 붙습니다.
+4. Deployment입니다. 웹 서버는 서로 구별할 필요가 없고 전용 저장소도 필요 없습니다.
 </details>
 
 ---
 
-다음 장: [08. Headless Service — Pod 하나하나를 직접 찾아가기](08-headless-service.md)
+다음 장: [08. Headless Service — Pod 하나하나를 이름으로 찾아가기](08-headless-service.md)

@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 400" width="900" height="400">
+<defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="sa" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151"/></marker><marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e03131"/></marker><marker id="sr" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#e03131"/></marker><marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#22a05a"/></marker><marker id="sg" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#22a05a"/></marker><marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="sb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#3b82f6"/></marker><marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f08c00"/></marker><marker id="so" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#f08c00"/></marker><marker id="ep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="sp" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#7c3aed"/></marker></defs>
+<rect width="900" height="400" fill="#ffffff"/>
+<text x="450.0" y="30" font-size="18" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Deployment와 StatefulSet 비교</text>
+<rect x="20" y="55" width="420" height="325" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="230.0" y="75" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Deployment — 누가 누구인지 중요하지 않다</text>
+<rect x="40" y="100" width="120" height="70" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="100.0" y="131.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<text x="100.0" y="148.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">web-7d9f-x2k4p</text>
+<line x1="100" y1="172" x2="230" y2="248" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="170" y="100" width="120" height="70" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="230.0" y="131.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<text x="230.0" y="148.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">web-7d9f-9qzrt</text>
+<line x1="230" y1="172" x2="230" y2="248" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="300" y="100" width="120" height="70" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="360.0" y="131.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<text x="360.0" y="148.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">web-7d9f-m5c8w</text>
+<line x1="360" y1="172" x2="230" y2="248" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<path d="M165,259 v52 a65.0,9 0 0 0 130,0 v-52" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<ellipse cx="230.0" cy="259" rx="65.0" ry="9" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="230.0" y="286.0" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">PVC 1개</text>
+<text x="230.0" y="301.0" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">모두가 공유</text>
+<text x="230" y="350" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">이름은 무작위 · 순서 없음 · 저장소를 쓴다면 공유</text>
+<rect x="460" y="55" width="420" height="325" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="670.0" y="75" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">StatefulSet — 각자 이름과 자기 저장소가 있다</text>
+<rect x="480" y="100" width="120" height="70" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="540.0" y="131.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<text x="540.0" y="148.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">web-0</text>
+<line x1="540" y1="172" x2="540" y2="248" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<path d="M485,259 v52 a55.0,9 0 0 0 110,0 v-52" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<ellipse cx="540.0" cy="259" rx="55.0" ry="9" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="540.0" y="293.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">data-web-0</text>
+<rect x="610" y="100" width="120" height="70" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="670.0" y="131.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<text x="670.0" y="148.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">web-1</text>
+<line x1="670" y1="172" x2="670" y2="248" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<path d="M615,259 v52 a55.0,9 0 0 0 110,0 v-52" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<ellipse cx="670.0" cy="259" rx="55.0" ry="9" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="670.0" y="293.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">data-web-1</text>
+<rect x="740" y="100" width="120" height="70" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="800.0" y="131.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<text x="800.0" y="148.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">web-2</text>
+<line x1="800" y1="172" x2="800" y2="248" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<path d="M745,259 v52 a55.0,9 0 0 0 110,0 v-52" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<ellipse cx="800.0" cy="259" rx="55.0" ry="9" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="800.0" y="293.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">data-web-2</text>
+<text x="670" y="350" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">이름은 번호순으로 고정 · 0 → 1 → 2 순서로 생성 · Pod마다 전용 PVC</text>
+</svg>
