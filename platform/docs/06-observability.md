@@ -72,4 +72,4 @@ Explore 쿼리의 namespace만 고의로 잘못 입력해 **No data**를 확인�
 | `up=1`, smoke는 보이나 heartbeat 증가 없음 | exporter까지는 정상. scheduler 로그, StatsD 설정, 매핑, UDP 통신 확인 |
 | heartbeat는 증가하지만 task 실패 | 해당 run의 Airflow 로그·task Pod Events 확인. `ImagePullBackOff`와 계산 오류는 원인이 다르다. |
 
-[검증 기록](../verification.md)에는 실제 클러스터 쿼리와 격리된 Docker에서 확인한 scheduler heartbeat를 구분했다. 강사가 교육 Application을 등록하기 전에는 그 namespace에서 `up=1`을 기대하지 않는다.
+[검증 기록](../verification.md)에는 실제 클러스터 쿼리와 격리된 Docker에서 확인한 scheduler heartbeat를 구분했다. 플랫폼 관리자가 실습용 Application을 등록하기 전에는 그 namespace에서 `up=1`을 기대하지 않는다.

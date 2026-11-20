@@ -17,12 +17,12 @@ printf '잘못된 입력 종료 코드: %s (기대: 2)\n' "$rc"
 
 ## 2. Harbor로 push — 제작자 계정
 
-강사: **Projects → New Project**에서 교육용 private 프로젝트를 만들고, **Robot Accounts**에서 이 프로젝트에만 권한을 준다. publisher는 repository **pull+push**, reader는 **pull만** 부여한다. 관리자 계정으로 `docker login`하거나 관리자 인증 정보를 `imagePullSecret`으로 만들지 않는다.
+플랫폼 관리자: **Projects → New Project**에서 교육용 private 프로젝트를 만들고, **Robot Accounts**에서 이 프로젝트에만 권한을 준다. publisher는 repository **pull+push**, reader는 **pull만** 부여한다. 관리자 계정으로 `docker login`하거나 관리자 인증 정보를 `imagePullSecret`으로 만들지 않는다.
 
 사설 CA이면 관리자가 **신뢰된 경로로 전달한 CA**를 빌드 엔진에 먼저 등록한다. Linux Docker Engine의 registry별 위치는 `/etc/docker/certs.d/<호스트[:포트]>/ca.crt`이다. worker의 containerd 신뢰 설정은 별도다. `curl --cacert` 성공과 kubelet pull 성공은 같은 검사가 아니다. `x509: certificate signed by unknown authority`는 잘못된 비밀번호가 아니다. `--insecure`로 넘기지 않는다.
 
 ```bash
-: "${HARBOR_HOST:?강사가 준 호스트명만 입력 (https:// 제외)}" "${HARBOR_PROJECT:?교육 프로젝트}"
+: "${HARBOR_HOST:?관리자에게 받은 호스트명만 입력 (https:// 제외)}" "${HARBOR_PROJECT:?교육 프로젝트}"
 REPO="$HARBOR_HOST/$HARBOR_PROJECT/report"
 PUSH_CONFIG=$(mktemp -d); chmod 700 "$PUSH_CONFIG"
 read -r -p 'publisher robot 이름: ' PUB_USER

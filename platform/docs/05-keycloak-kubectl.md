@@ -26,10 +26,10 @@ API 서버가 신뢰할 예시 설정은 다음과 같다. **명령이 아니라
 
 ## 3. RBAC: 읽기 권한만 주기
 
-[Role + RoleBinding 예제](../examples/oidc/pod-reader.yaml)는 이름이 **`oidc:edu-readers`인 그룹**에 자기 namespace의 Pod `get/list/watch`만 부여한다. Keycloak 그룹이 동일해도 namespace별로 RoleBinding이 없으면 이 권한은 생기지 않는다. 관리자가 대상·소유권을 확인하고 개인 교육 namespace에서만 적용한다. 실습 프로젝트를 GitOps로 관리한다면 강사가 승인한 Git 경로에 예제를 추가한다.
+[Role + RoleBinding 예제](../examples/oidc/pod-reader.yaml)는 이름이 **`oidc:edu-readers`인 그룹**에 자기 namespace의 Pod `get/list/watch`만 부여한다. Keycloak 그룹이 동일해도 namespace별로 RoleBinding이 없으면 이 권한은 생기지 않는다. 관리자가 대상·소유권을 확인하고 개인 교육 namespace에서만 적용한다. 실습 프로젝트를 GitOps로 관리한다면 관리자가 승인한 Git 경로에 예제를 추가한다.
 
 ```bash
-# 관리자: 교재 루트에서, 강사가 직접 관리하는 개인 namespace인 경우만 적용한다.
+# 관리자: 교재 루트에서, 관리자가 직접 관리하는 개인 namespace인 경우만 적용한다.
 # GitOps 관리 대상이라면 아래 apply 대신 승인된 Git 변경으로 반영한다.
 kc -n "$NS" apply -f platform/examples/oidc/pod-reader.yaml
 # impersonate 권한이 있는 기존 관리자 컨텍스트로 확인. OIDC 토큰은 사용하지 않는다.
@@ -39,9 +39,9 @@ kc auth can-i delete pods -n "$NS" --as=oidc:sample-subject --as-group=oidc:edu-
 
 의도한 답은 `yes / no`다. 이는 **RBAC만 검증**한 것이다. 그 사용자가 다른 바인딩으로 추가 권한을 받았다면 합산되므로 함께 확인한다.
 
-## 4. 교육생: 독립 kubeconfig로 실제 로그인
+## 4. 사용자: 독립 kubeconfig로 실제 로그인
 
-전제 충족 후 신뢰된 배포 경로에서 kubectl 플러그인 `oidc-login`(int128/kubelogin)을 설치한다. 강사에게 받은 서버 URL과 두 CA 경로를 사용한다. 아래 명령은 **새 파일만** 만들며 기존 관리자 kubeconfig에서 인증 데이터를 복사하지 않는다.
+전제 충족 후 신뢰된 배포 경로에서 kubectl 플러그인 `oidc-login`(int128/kubelogin)을 설치한다. 플랫폼 관리자에게 받은 서버 URL과 두 CA 경로를 사용한다. 아래 명령은 **새 파일만** 만들며 기존 관리자 kubeconfig에서 인증 데이터를 복사하지 않는다.
 
 ```bash
 : "${API_SERVER:?}" "${CLUSTER_CA:?}" "${OIDC_ISSUER:?}" "${ISSUER_CA:?}" "${NS:?}"
@@ -60,4 +60,4 @@ ku auth can-i delete pods -n "$NS"
 
 **성공 증거:** 실제 로그인 후 `auth whoami`에 `oidc:<sub>`와 `oidc:edu-readers`, `can-i`에 `yes / no`가 나온다. 토큰 문자열을 화면에 출력하거나 온라인 JWT 디코더에 보내지 않는다.
 
-**과제:** 강사가 교육 그룹 바인딩의 `oidc:` 접두사를 빠뜨린 사례를 진단해 보자. `whoami`부터 실패하면 issuer·CA·audience·만료를 보고, `whoami`는 맞는데 `Forbidden`이면 실제 group 문자열·namespace·verb를 비교한다. RBAC를 수정한 뒤 같은 사용자로 재검사한다. 그룹 멤버십 변경은 새 ID token이 필요할 수 있다. 수업 후에는 전용 캐시 정책에 따라 로그인 세션을 종료하고 교육용 kubeconfig/임시 바인딩만 반납한다.
+**과제:** 관리자가 실습 그룹 바인딩의 `oidc:` 접두사를 빠뜨린 사례를 진단해 보자. `whoami`부터 실패하면 issuer·CA·audience·만료를 보고, `whoami`는 맞는데 `Forbidden`이면 실제 group 문자열·namespace·verb를 비교한다. RBAC를 수정한 뒤 같은 사용자로 재검사한다. 그룹 멤버십 변경은 새 ID token이 필요할 수 있다. 실습 후에는 전용 캐시 정책에 따라 로그인 세션을 종료하고 교육용 kubeconfig/임시 바인딩만 반납한다.
