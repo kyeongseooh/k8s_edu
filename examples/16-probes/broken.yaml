@@ -1,0 +1,27 @@
+# 고장 실습: 앱은 정상인데 계속 재시작된다
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      terminationGracePeriodSeconds: 2
+      containers:
+      - name: nginx
+        image: nginx:1.27-alpine
+        ports:
+        - containerPort: 80
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 8080               # 틀림! nginx는 80번에서 듣는다
+          periodSeconds: 5
+          failureThreshold: 2

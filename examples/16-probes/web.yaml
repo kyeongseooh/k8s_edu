@@ -1,42 +1,51 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: health-web
+  name: web
 spec:
-  replicas: 1
+  replicas: 2
   selector:
-    matchLabels: {app: edu-health}
+    matchLabels:
+      app: web
   template:
     metadata:
-      labels: {app: edu-health}
+      labels:
+        app: web
     spec:
-      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 2
       containers:
-      - name: web
+      - name: nginx
         image: nginx:1.27-alpine
-        imagePullPolicy: IfNotPresent
-        command: [sh, -ec]
-        args: ['printf ready > /usr/share/nginx/html/ready; exec nginx -g "daemon off;"']
+        command: ["sh", "-c"]
+        args:                        # 시작할 때 검사용 파일 두 개와 첫 페이지를 만든다
+        - |
+          cd /usr/share/nginx/html
+          echo ok > healthz
+          echo ok > ready
+          echo "$(hostname)" > index.html
+          exec nginx -g 'daemon off;'
         ports:
-        - {name: http, containerPort: 80}
-        startupProbe:
-          httpGet: {path: /, port: http}
-          periodSeconds: 2
-          failureThreshold: 15
-        readinessProbe:
-          httpGet: {path: /ready, port: http}
-          periodSeconds: 2
-          failureThreshold: 2
-        livenessProbe:
-          httpGet: {path: /, port: http}
-          periodSeconds: 10
-          failureThreshold: 3
+        - containerPort: 80
+        readinessProbe:              # "요청을 받을 준비가 됐나?" -> 실패하면 Service 대상에서 제외
+          httpGet:
+            path: /ready
+            port: 80
+          periodSeconds: 3           # 3초마다 검사
+          failureThreshold: 2        # 2번 연속 실패하면 "준비 안 됨"
+        livenessProbe:               # "살아 있나?" -> 실패하면 컨테이너를 재시작
+          httpGet:
+            path: /healthz
+            port: 80
+          periodSeconds: 5           # 5초마다 검사
+          failureThreshold: 2        # 2번 연속 실패하면 재시작
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: health-web
+  name: web
 spec:
-  selector: {app: edu-health}
+  selector:
+    app: web
   ports:
-  - {port: 80, targetPort: http}
+  - port: 80
+    targetPort: 80
