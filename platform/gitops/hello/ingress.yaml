@@ -1,0 +1,17 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: hello.10.0.1.230.nip.io      # 브라우저에서 http://hello.10.0.1.230.nip.io 로 접속
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hello
+            port:
+              number: 80

@@ -9,8 +9,9 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 errors = []
-docs = [ROOT / 'README.md'] + sorted((ROOT / 'docs').glob('*.md'))
-examples = sorted((ROOT / 'examples').rglob('*.yaml'))
+docs = ([ROOT / 'README.md'] + sorted((ROOT / 'docs').glob('*.md'))
+        + [ROOT / 'platform' / 'README.md'] + sorted((ROOT / 'platform' / 'docs').glob('*.md')))
+examples = sorted((ROOT / 'examples').rglob('*.yaml')) + sorted((ROOT / 'platform').rglob('*.yaml'))
 links = blocks = objects = 0
 
 for doc in docs:
@@ -39,7 +40,7 @@ for path in examples:
                 errors.append(f'{path.name}: incomplete Kubernetes object')
                 continue
             objects += 1
-            if obj['metadata'].get('namespace'):
+            if obj['metadata'].get('namespace') and 'platform' not in path.parts:
                 errors.append(f'{path.name}: metadata.namespace overrides the learner’s namespace')
     except yaml.YAMLError as exc:
         errors.append(f'{path.name}: {exc}')

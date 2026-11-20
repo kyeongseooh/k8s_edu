@@ -1,0 +1,45 @@
+# Harbor의 비공개 프로젝트에서 이미지를 받아 실행하는 Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      imagePullSecrets:              # 이미지를 받을 때 쓸 로그인 정보 (Secret 이름)
+      - name: harbor-pull
+      containers:
+      - name: hello-app
+        image: harbor.10.0.1.230.nip.io/edu/hello-app:v1
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 50m
+            memory: 32Mi
+          limits:
+            cpu: 200m
+            memory: 64Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello
+spec:
+  selector:
+    app: hello
+  ports:
+  - port: 80
+    targetPort: 8080

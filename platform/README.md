@@ -1,21 +1,33 @@
 # Kubernetes 위에서 데이터 플랫폼 운영하기
 
-**최종 미션:** 주문 금액 3개를 합산하는 Python 코드를 직접 빌드한다. Harbor에 올린 그 이미지로 Airflow DAG가 **별도 Kubernetes Pod**를 실행해 `report_ok rows=3 total=42`를 남기게 한다. 그 과정에서 “누가 Pod를 만들었나?”, “어떤 Git 커밋의 정책이 적용됐나?”, “Pod가 살아 있는 것과 DAG가 성공한 것을 어떻게 구분하나?”에 답해 보자.
+[기초 과정](../README.md)에서 쿠버네티스를 배웠다면, 이 과정에서는 그 위에 올라가 있는 플랫폼 도구들을 **실제 업무 순서대로** 사용해 봅니다.
+내 코드를 이미지로 만들어 저장소에 올리고, Git으로 배포하고, 스케줄러로 실행하고, 권한을 통제하고, 모니터링합니다.
 
-두 저장소의 역할이 다르다. **여기(`k8s_edu/platform`)는 읽는 교재**다. **[k8s-platform-gitops](https://github.com/kyeongseooh/k8s-platform-gitops)는 Argo CD가 읽는 실제 설정 저장소(private)**다. GitHub에서 404가 뜨면 저장소 관리자에게 읽기 권한을 요청한다. 교재를 수정해도 배포는 바뀌지 않는다.
+![플랫폼 구성](../images/platform/p00-overview.svg)
 
-| 순서 | 실습 | 성공 증거 |
+## 목차
+
+| 장 | 내용 | 직접 해 보는 것 |
 |---|---|---|
-| 00 | [시작 전 역할·환경 확인](docs/00-start.md) | 기존 Airflow와 새 교육 대상의 이름·권한을 구분 |
-| 01 | [Docker → Harbor](docs/01-image-harbor.md) | push한 이미지와 pull한 digest 일치, 합계 42 |
-| 02 | [Git → Argo CD → Airflow 생성](docs/02-gitops.md) | Application에 표시된 revision과 원격 Git SHA 일치 |
-| 03 | [Namespace·ResourceQuota·LimitRange를 Git으로 변경](docs/03-policy.md) | 정책 값뿐 아니라 새 Pod에 들어간 기본값, quota 초과 거부까지 확인 |
-| 04 | [커스텀 이미지를 쓰는 Airflow DAG](docs/04-airflow.md) | 컨트롤러가 만든 task Pod에서 실행한 결과가 task log에 남음 |
-| 05 | [Keycloak 로그인 → kubectl 권한](docs/05-keycloak-kubectl.md) | 사용자·그룹 신원과 네임스페이스별 허용/거부를 따로 확인 |
-| 06 | [Prometheus·Grafana 모니터링](docs/06-observability.md) | Pod 상태, scheduler heartbeat, task 결과를 서로 다른 신호로 진단 |
-| 07 | [MinIO S3 객체 운영](docs/07-minio.md) | 내 prefix PUT/GET 일치, 범위 밖 접근 거부 |
-| 08 | [Kubeflow Profile·Notebook·Pipeline](docs/08-kubeflow.md) | 내 Profile에서 실행 결과와 artifact 위치 확인 |
+| [00. 한눈에 보기와 준비](docs/00-overview.md) | 각 시스템의 역할, 접속 정보, 실습 준비 | 화면 접속, 네임스페이스 준비 |
+| [01. Harbor](docs/01-harbor.md) | 이미지 저장소 | Docker 이미지 빌드 → push → 쿠버네티스에서 pull |
+| 02. Argo CD | GitOps 배포 | Git 수정으로 배포·변경·복구 |
+| 03. Airflow 설치 | Argo CD + Helm | Git에 적은 설정으로 Airflow 만들기 |
+| 04. Airflow DAG | 워크플로 실행 | DAG 배포, 작업 Pod 관찰, 내 이미지로 작업 실행 |
+| 05. Keycloak과 kubectl | 로그인과 권한 | Keycloak 계정으로 kubectl 로그인, 그룹별 권한 |
+| 06. Prometheus · Grafana | 모니터링 | 쿠버네티스와 Airflow 지표 조회, 대시보드, 알림 |
+| 07. MinIO | S3 호환 저장소 | 버킷과 객체 다루기, Pod에서 S3 사용 |
+| 08. Kubeflow | ML 플랫폼 | Notebook, Pipeline 실행 |
 
-**추천 진행:** 00~04는 같은 실습 환경에서 이어서 하고 06으로 결과를 관찰한다. 05·07·08은 독립적으로 배울 수 있다. 공유 클러스터의 기존 `airflow`를 실습 대상으로 사용하지 않는다. 제공된 매니페스트는 이름이 고정된 **단일 실습 환경용**이다. 여러 팀이 동시에 쓰려면 팀별 Git 경로·Application·namespace로 분리하고 소유권을 확인한다.
+링크가 없는 장은 작성 중입니다.
 
-[실제 검증 결과와 미실행 단계](verification.md) · [공개용 작은 예제](examples/) · [Kubernetes 기초로 돌아가기](../README.md)
+각 장은 기초 과정과 같은 순서로 진행합니다: **왜 필요한가 → 그림으로 보는 개념 → 따라 하는 실습 → 고장 내고 고치기 → 정리**.
+
+## 저장소 구성
+
+```
+platform/docs/       장별 교재
+platform/examples/   실습용 소스와 YAML
+platform/gitops/     Argo CD가 읽어 가는 배포 설정
+images/platform/     교재에 쓰인 그림과 화면 캡처
+```
