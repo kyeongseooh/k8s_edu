@@ -1,0 +1,15 @@
+# Prometheus에게 "이 Service의 지표를 주기적으로 가져가라"고 알려 주는 리소스
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: edu-airflow
+  namespace: edu-airflow
+spec:
+  selector:                    # 어떤 Service를 수집 대상으로 할지 (Service의 레이블)
+    matchLabels:
+      component: statsd
+      release: airflow
+  endpoints:
+  - port: statsd-scrape        # Service의 포트 "이름" (9102번)
+    path: /metrics
+    interval: 15s              # 15초마다 수집

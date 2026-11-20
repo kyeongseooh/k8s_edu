@@ -15,7 +15,7 @@
 | [03. Airflow 설치](docs/03-airflow.md) | Argo CD + Helm | Git에 적은 설정으로 Airflow 만들기 |
 | [04. Airflow DAG](docs/04-airflow-dag.md) | 워크플로 실행 | DAG 배포, 작업 Pod 관찰, 내 이미지로 작업 실행 |
 | 05. Keycloak과 kubectl | 로그인과 권한 | Keycloak 계정으로 kubectl 로그인, 그룹별 권한 |
-| 06. Prometheus · Grafana | 모니터링 | 쿠버네티스와 Airflow 지표 조회, 대시보드, 알림 |
+| [06. Prometheus · Grafana](docs/06-monitoring.md) | 모니터링 | 쿠버네티스와 Airflow 지표 조회, 대시보드, 알림 |
 | 07. MinIO | S3 호환 저장소 | 버킷과 객체 다루기, Pod에서 S3 사용 |
 | 08. Kubeflow | ML 플랫폼 | Notebook, Pipeline 실행 |
 

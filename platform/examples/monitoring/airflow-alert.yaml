@@ -1,0 +1,24 @@
+# 알림 규칙: 조건이 일정 시간 계속되면 알림(Alert)을 발생시킨다
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: edu-airflow
+  namespace: edu-airflow
+spec:
+  groups:
+  - name: edu-airflow
+    rules:
+    - alert: EduAirflowTaskFailed
+      expr: increase(airflow_ti_failures[5m]) > 0          # 최근 5분 동안 실패한 작업이 있으면
+      labels:
+        severity: warning
+      annotations:
+        summary: "Airflow 작업이 실패했습니다"
+        description: "최근 5분 동안 실패한 작업 수: {{ $value }}"
+    - alert: EduAirflowSchedulerDown
+      expr: absent(airflow_scheduler_heartbeat) or rate(airflow_scheduler_heartbeat[2m]) == 0
+      for: 2m                                               # 2분 동안 계속되면
+      labels:
+        severity: critical
+      annotations:
+        summary: "Airflow 스케줄러가 응답하지 않습니다"

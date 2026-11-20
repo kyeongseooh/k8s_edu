@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 940 400" width="940" height="400">
+<defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="sa" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151"/></marker><marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e03131"/></marker><marker id="sr" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#e03131"/></marker><marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#22a05a"/></marker><marker id="sg" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#22a05a"/></marker><marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="sb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#3b82f6"/></marker><marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f08c00"/></marker><marker id="so" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#f08c00"/></marker><marker id="ep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="sp" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#7c3aed"/></marker></defs>
+<rect width="940" height="400" fill="#ffffff"/>
+<text x="470.0" y="30" font-size="18" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Prometheus는 지표를 &quot;가지러 간다&quot; (pull)</text>
+<rect x="20" y="60" width="270" height="320" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="155.0" y="80" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">지표를 내놓는 곳 (/metrics)</text>
+<rect x="40" y="100" width="230" height="56" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="155.0" y="124.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">node-exporter</text>
+<text x="155.0" y="141.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">노드의 CPU·메모리·디스크</text>
+<rect x="40" y="168" width="230" height="56" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="155.0" y="192.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">kubelet (cAdvisor)</text>
+<text x="155.0" y="209.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">컨테이너별 사용량</text>
+<rect x="40" y="236" width="230" height="56" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="155.0" y="260.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">kube-state-metrics</text>
+<text x="155.0" y="277.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">Pod·Deployment의 상태</text>
+<rect x="40" y="304" width="230" height="56" rx="8" fill="#fff3e0" stroke="#f08c00" stroke-width="1.5"/>
+<text x="155.0" y="328.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">airflow-statsd</text>
+<text x="155.0" y="345.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">Airflow 작업·스케줄러</text>
+<rect x="390" y="110" width="190" height="110" rx="8" fill="#fdecec" stroke="#e03131" stroke-width="1.5"/>
+<text x="485.0" y="145.5" font-size="15" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Prometheus</text>
+<text x="485.0" y="164.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">15~30초마다 수집</text>
+<text x="485.0" y="180.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">시간순으로 저장</text>
+<text x="485.0" y="196.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">PromQL로 조회</text>
+<rect x="390" y="280" width="190" height="80" rx="8" fill="#fff9db" stroke="#e0a800" stroke-width="1.5"/>
+<text x="485.0" y="309.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">ServiceMonitor</text>
+<text x="485.0" y="326.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">&quot;이 Service를</text>
+<text x="485.0" y="340.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">수집 대상에 넣어라&quot;</text>
+<line x1="485" y1="278" x2="485" y2="222" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<text x="547.0" y="254.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">수집 대상 목록</text>
+<line x1="388" y1="165" x2="272" y2="128" stroke="#e03131" stroke-width="1.8" marker-end="url(#er)"/>
+<line x1="388" y1="165" x2="272" y2="196" stroke="#e03131" stroke-width="1.8" marker-end="url(#er)"/>
+<line x1="388" y1="165" x2="272" y2="264" stroke="#e03131" stroke-width="1.8" marker-end="url(#er)"/>
+<line x1="388" y1="165" x2="272" y2="332" stroke="#e03131" stroke-width="1.8" marker-end="url(#er)"/>
+<text x="330" y="92" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#e03131">수집 (scrape)</text>
+<rect x="680" y="60" width="240" height="90" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="800.0" y="101.5" font-size="15" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Grafana</text>
+<text x="800.0" y="120.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">그래프 · 대시보드</text>
+<rect x="680" y="180" width="240" height="90" rx="8" fill="#f1eafd" stroke="#7c3aed" stroke-width="1.5"/>
+<text x="800.0" y="221.5" font-size="15" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Alertmanager</text>
+<text x="800.0" y="240.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">알림 전달 (메일, 메신저)</text>
+<rect x="680" y="300" width="240" height="60" rx="8" fill="#fff9db" stroke="#e0a800" stroke-width="1.5"/>
+<text x="800.0" y="326.5" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">PrometheusRule</text>
+<text x="800.0" y="343.5" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">&quot;이 조건이면 알림&quot;</text>
+<line x1="678" y1="105" x2="582" y2="145" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<text x="630.0" y="113.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">PromQL 조회</text>
+<line x1="582" y1="185" x2="678" y2="225" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<text x="630.0" y="195.0" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#374151">알림 발생</text>
+<polyline points="800,298 800,286 610,286 610,250 550,250 550,222" fill="none" stroke="#374151" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#ea)"/>
+</svg>
