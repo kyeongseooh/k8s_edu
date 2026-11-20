@@ -1,19 +1,22 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: busybox
+  name: secret-reader
 spec:
+  terminationGracePeriodSeconds: 1
   containers:
-  - name: busybox
-    image: busybox
+  - name: reader
+    image: nginx:1.27-alpine
     command:
       - sleep
       - "3600"
     volumeMounts:
     - name: secret-volume
-      readOnly: true
+      readOnly: true                 # Secret은 읽기 전용 마운트가 기본 예의
       mountPath: /etc/secret-volume
+    imagePullPolicy: IfNotPresent
   volumes:
   - name: secret-volume
     secret:
-      secretName: literal
+      secretName: secret-edu05
+  restartPolicy: Always

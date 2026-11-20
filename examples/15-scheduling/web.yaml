@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: placement
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: edu-placement}
+  template:
+    metadata:
+      labels: {app: edu-placement}
+    spec:
+      automountServiceAccountToken: false
+      containers:
+      - name: web
+        image: nginx:1.27-alpine
+        imagePullPolicy: IfNotPresent
+        resources:
+          requests: {cpu: 10m, memory: 8Mi}
+          limits: {cpu: 100m, memory: 32Mi}

@@ -1,0 +1,14 @@
+# 공용 클러스터에서 NodePort를 직접 열면 포트 충돌 위험이 있으므로,
+# 실습은 기본값인 ClusterIP로 진행합니다. NodePort 구조는 문서 본문의 텍스트 예시로 설명합니다.
+apiVersion: v1
+kind: Service
+metadata:
+  name: svc-edu03
+spec:
+  type: ClusterIP             # 생략해도 기본값은 ClusterIP
+  selector:
+    app: edu03-web            # deploy-edu03의 Pod 레이블과 일치해야 함
+  ports:
+    - protocol: TCP
+      port: 80                # Service 자신의 포트 (ClusterIP:80)
+      targetPort: 80           # 트래픽을 전달할 Pod(컨테이너)의 포트

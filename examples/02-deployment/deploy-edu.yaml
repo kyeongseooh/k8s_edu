@@ -1,32 +1,33 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: edu-deployment
+  name: deploy-edu02
 spec:
   replicas: 2
-  selector:
+  selector:                    # "어떤 Pod가 내 관리 대상인가"를 레이블로 지정
     matchLabels:
-      app: edu-web
-  template:
+      app: edu02-web
+  template:                    # Pod를 찍어낼 틀
     metadata:
       labels:
-        app: edu-web
+        app: edu02-web         # ← selector.matchLabels와 반드시 일치
     spec:
       containers:
         - name: web
-          image: ubuntu/apache2:latest
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: edu-service
+  name: svc-edu02
 spec:
   selector:
-    app: edu-web
+    app: edu02-web             # app=edu02-web 레이블이 붙은 Pod들에게 트래픽 전달
   ports:
     - protocol: TCP
       port: 80
       targetPort: 80
-  type: NodePort
+  type: ClusterIP

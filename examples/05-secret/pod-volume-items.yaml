@@ -1,11 +1,12 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: busybox
+  name: secret-reader
 spec:
+  terminationGracePeriodSeconds: 1
   containers:
-  - name: busybox
-    image: busybox
+  - name: reader
+    image: nginx:1.27-alpine
     command:
       - sleep
       - "3600"
@@ -13,10 +14,12 @@ spec:
     - name: secret-volume
       readOnly: true
       mountPath: /etc/secret-volume
+    imagePullPolicy: IfNotPresent
   volumes:
   - name: secret-volume
     secret:
-      secretName: literal
+      secretName: secret-edu05
       items:
       - key: env
-        path: env.txt
+        path: env.txt            # env 라는 key를 env.txt 라는 파일로
+  restartPolicy: Always

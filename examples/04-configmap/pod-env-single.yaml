@@ -1,19 +1,18 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: busybox
+  name: config-reader
 spec:
+  terminationGracePeriodSeconds: 1
   containers:
-  - name: busybox
-    image: busybox
+  - name: reader
+    image: nginx:1.27-alpine
     env:
-    - name: USERNAME
+    - name: USERNAME            # 컨테이너에 보일 환경변수 이름
       valueFrom:
         configMapKeyRef:
-          name: edu-config
-          key: username
-    command:
-      - sleep
-      - "3600"
+          name: cm-edu04        # 어느 ConfigMap에서
+          key: username          # 어느 key를 가져올까
+    command: ["sleep", "3600"]  # 1시간 동안 대기 (실습용으로 살려두기)
     imagePullPolicy: IfNotPresent
   restartPolicy: Always

@@ -1,0 +1,28 @@
+# 각 Pod가 "자기 이름-IP"를 응답하는 웹 서버 2대
+# (Service는 svc-edu03.yaml / svc-edu03-broken.yaml 에서 별도로 다룹니다)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: deploy-edu03
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: edu03-web
+  template:
+    metadata:
+      labels:
+        app: edu03-web
+    spec:
+      containers:
+        - name: web
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/bin/sh"
+            - "-c"
+            - >
+              echo "$(hostname)-$(hostname -i)" > /usr/share/nginx/html/index.html &&
+              nginx -g 'daemon off;'
+          ports:
+            - containerPort: 80

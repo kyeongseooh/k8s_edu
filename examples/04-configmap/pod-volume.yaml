@@ -1,20 +1,21 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: busybox
+  name: config-reader
 spec:
+  terminationGracePeriodSeconds: 1
   containers:
-    - name: busybox
-      image: busybox
+    - name: reader
+      image: nginx:1.27-alpine
       command:
         - sleep
         - "3600"
       volumeMounts:
-        - name: config-volume
-          mountPath: /etc/config
+        - name: config-volume       # 아래 volumes의 이름과 매칭
+          mountPath: /etc/config    # 컨테이너 안에서 보일 경로
       imagePullPolicy: IfNotPresent
   volumes:
     - name: config-volume
       configMap:
-        name: edu-config
+        name: cm-edu04              # 이 ConfigMap의 key들이 파일이 됨
   restartPolicy: Always

@@ -2,11 +2,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: naver
+  name: ch10-naver
+  labels:
+    app: ch10-naver
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: naver
+    app: ch10-naver
   ports:
     - port: 80
       targetPort: 80
@@ -14,31 +16,35 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: naver
+  name: ch10-naver
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: naver
+      app: ch10-naver
   template:
     metadata:
       labels:
-        app: naver
+        app: ch10-naver
     spec:
       containers:
-        - name: naver
-          image: ubuntu/apache2:latest
+        - name: web
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "echo naver > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
           ports:
             - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: cloud
+  name: ch10-cloud
+  labels:
+    app: ch10-cloud
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: cloud
+    app: ch10-cloud
   ports:
     - port: 80
       targetPort: 80
@@ -46,31 +52,35 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: cloud
+  name: ch10-cloud
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: cloud
+      app: ch10-cloud
   template:
     metadata:
       labels:
-        app: cloud
+        app: ch10-cloud
     spec:
       containers:
-        - name: cloud
-          image: ubuntu/apache2:latest
+        - name: web
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "echo cloud > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
           ports:
             - containerPort: 80
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: platform
+  name: ch10-platform
+  labels:
+    app: ch10-platform
 spec:
-  type: NodePort
+  type: ClusterIP
   selector:
-    app: platform
+    app: ch10-platform
   ports:
     - port: 80
       targetPort: 80
@@ -78,19 +88,21 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: platform
+  name: ch10-platform
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: platform
+      app: ch10-platform
   template:
     metadata:
       labels:
-        app: platform
+        app: ch10-platform
     spec:
       containers:
-        - name: platform
-          image: ubuntu/apache2:latest
+        - name: web
+          image: nginx:1.27-alpine
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c", "echo platform > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
           ports:
             - containerPort: 80

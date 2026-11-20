@@ -1,11 +1,12 @@
 apiVersion: v1
 kind: Pod
 metadata:
-  name: busybox
+  name: config-reader
 spec:
+  terminationGracePeriodSeconds: 1
   containers:
-    - name: busybox
-      image: busybox
+    - name: reader
+      image: nginx:1.27-alpine
       command:
         - sleep
         - "3600"
@@ -16,8 +17,8 @@ spec:
   volumes:
     - name: config-volume
       configMap:
-        name: edu-config
-        items:
+        name: cm-edu04
+        items:                      # 이 목록에 있는 key만 마운트
           - key: config.json
-            path: config.json
+            path: config.json       # 마운트될 파일명 (바꿀 수도 있음)
   restartPolicy: Always

@@ -1,0 +1,13 @@
+# 복구용: roleRef.name을 실제 존재하는 Role 이름(pod-reader)으로 정정.
+# RoleBinding의 roleRef는 불변(immutable)이라 patch로 못 고치고, 삭제 후 재생성해야 합니다.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: viewer-bot-pod-reader
+subjects:
+- kind: ServiceAccount
+  name: viewer-bot
+roleRef:
+  kind: Role
+  name: pod-reader
+  apiGroup: rbac.authorization.k8s.io

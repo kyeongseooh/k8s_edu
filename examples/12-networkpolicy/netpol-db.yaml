@@ -1,4 +1,5 @@
-# 실습용: role=db Pod에는 role=frontend Pod만 TCP 80으로 접속 허용
+# role=db Pod(billing-db)는 role=frontend Pod만 TCP 80으로 접속 허용
+# namespace는 적지 않음 — k() 적용 시 네임스페이스가 채워집니다.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

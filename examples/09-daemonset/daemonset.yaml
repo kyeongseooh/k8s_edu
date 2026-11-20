@@ -1,30 +1,28 @@
+# WORKER_A / WORKER_B는 09장에서 선정한 두 워커의 기존 hostname 라벨 값으로 치환한다.
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: fluentd-elasticsearch
-  namespace: kube-system
-  labels:
-    k8s-app: fluentd-logging
+  name: ch09-ds
 spec:
   selector:
-    matchLabels:
-      name: fluentd-elasticsearch
-  updateStrategy:
-    type: RollingUpdate
+    matchLabels: {app: ch09-ds}
   template:
     metadata:
-      labels:
-        name: fluentd-elasticsearch
+      labels: {app: ch09-ds}
     spec:
+      automountServiceAccountToken: false
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: kubernetes.io/hostname
+                operator: In
+                values: [WORKER_A, WORKER_B]
       containers:
-      - name: fluentd-elasticsearch
-        image: quay.io/fluentd_elasticsearch/fluentd:v2.5.2
-        env:
-        - name: testenv
-          value: value
+      - name: agent
+        image: nginx:1.27-alpine
+        imagePullPolicy: IfNotPresent
         resources:
-          limits:
-            memory: 200Mi
-          requests:
-            cpu: 100m
-            memory: 200Mi
+          requests: {cpu: 10m, memory: 8Mi}
+          limits: {cpu: 100m, memory: 32Mi}

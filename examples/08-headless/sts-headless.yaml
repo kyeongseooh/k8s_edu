@@ -1,42 +1,39 @@
-# 각 Pod가 "자기 호스트네임-IP"를 응답하는 StatefulSet + headless Service
+# 각 Pod가 "자기 호스트네임"을 응답하는 StatefulSet + headless Service
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: edu-statefulset
+  name: ch08-app
 spec:
   replicas: 2
+  serviceName: ch08-svc
   selector:
     matchLabels:
-      app: edu-app
-  serviceName: "pod-edu-service"
+      app: ch08-app
   template:
     metadata:
       labels:
-        app: edu-app
+        app: ch08-app
     spec:
       containers:
       - name: web
-        image: ubuntu/apache2:latest
+        image: nginx:1.27-alpine
+        imagePullPolicy: IfNotPresent
         command:
           - "/bin/sh"
           - "-c"
-          - >
-            echo "ServerName localhost" > /etc/apache2/conf-available/server-name.conf &&
-            a2enconf server-name &&
-            echo "$(hostname)-$(hostname -i)" > /var/www/html/index.html &&
-            apache2ctl -DFOREGROUND
+          - "echo \"$(hostname)\" > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"
         ports:
         - containerPort: 80
+          name: web
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: pod-edu-service
+  name: ch08-svc
 spec:
-  type: ClusterIP
-  clusterIP: None
+  clusterIP: None            # ★ 이 한 줄이 headless 서비스를 만든다
   selector:
-    app: edu-app
+    app: ch08-app
   ports:
     - protocol: TCP
       port: 80
