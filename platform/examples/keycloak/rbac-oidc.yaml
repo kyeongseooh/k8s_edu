@@ -1,0 +1,29 @@
+# Keycloak 그룹에 쿠버네티스 권한을 연결한다.
+# API 서버가 그룹 이름 앞에 "oidc:"를 붙이도록 설정되어 있으므로 여기에도 붙여서 적는다.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: oidc-developers-edit
+  namespace: edu-platform
+subjects:
+- kind: Group
+  name: oidc:edu-developers          # Keycloak의 edu-developers 그룹
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: edit                         # 만들기·고치기·지우기 (기초 과정 11장)
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: oidc-viewers-view
+  namespace: edu-platform
+subjects:
+- kind: Group
+  name: oidc:edu-viewers             # Keycloak의 edu-viewers 그룹
+  apiGroup: rbac.authorization.k8s.io
+roleRef:
+  kind: ClusterRole
+  name: view                         # 읽기 전용
+  apiGroup: rbac.authorization.k8s.io

@@ -1,0 +1,25 @@
+# Keycloak을 HTTPS 주소(sso.10.0.1.230.nip.io)로도 열어 준다. 기존 HTTP 주소는 그대로 둔다.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: keycloak-https
+  namespace: keycloak
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+spec:
+  ingressClassName: nginx
+  tls:
+  - hosts:
+    - sso.10.0.1.230.nip.io
+    secretName: keycloak-https-tls         # 인증서와 키가 든 Secret
+  rules:
+  - host: sso.10.0.1.230.nip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: keycloak
+            port:
+              number: 8080

@@ -1,0 +1,34 @@
+# 화면의 "New Notebook"이 만드는 것과 같은 리소스
+apiVersion: kubeflow.org/v1
+kind: Notebook
+metadata:
+  name: edu-notebook
+  labels:
+    app: edu-notebook
+spec:
+  template:
+    spec:
+      serviceAccountName: default-editor
+      containers:
+      - name: edu-notebook
+        image: kubeflownotebookswg/jupyter-scipy:v1.9.2
+        resources:
+          requests: {cpu: 200m, memory: 512Mi}
+          limits: {cpu: "1", memory: 1Gi}
+        volumeMounts:
+        - name: workspace
+          mountPath: /home/jovyan          # 노트북 파일이 저장되는 곳
+      volumes:
+      - name: workspace
+        persistentVolumeClaim:
+          claimName: edu-notebook-workspace
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: edu-notebook-workspace
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
