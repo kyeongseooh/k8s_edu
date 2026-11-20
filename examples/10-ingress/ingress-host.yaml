@@ -1,0 +1,28 @@
+# 호스트(도메인) 이름으로 나누기
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-host
+spec:
+  ingressClassName: nginx            # 이 규칙을 처리할 Ingress 컨트롤러
+  rules:
+  - host: shop.edu-lab.example.com   # 이 이름으로 들어온 요청은
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: shop               # shop Service의
+            port:
+              number: 80             # 80번 포트로 보낸다
+  - host: blog.edu-lab.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: blog
+            port:
+              number: 80

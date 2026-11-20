@@ -1,0 +1,27 @@
+# 고장 실습: /blog 경로의 Service 이름이 틀렸다
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-path
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: www.edu-lab.example.com
+    http:
+      paths:
+      - path: /shop
+        pathType: Prefix
+        backend:
+          service:
+            name: shop
+            port:
+              number: 80
+      - path: /blog
+        pathType: Prefix
+        backend:
+          service:
+            name: blogs              # 오타! 실제 Service 이름은 blog
+            port:
+              number: 80

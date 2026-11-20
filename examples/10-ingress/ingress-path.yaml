@@ -1,0 +1,28 @@
+# 하나의 호스트에서 경로(path)로 나누기
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-path
+  annotations:
+    # /shop 으로 들어온 요청을 뒤쪽 앱에는 / 로 바꿔서 전달한다 (ingress-nginx 전용 설정)
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: www.edu-lab.example.com
+    http:
+      paths:
+      - path: /shop
+        pathType: Prefix
+        backend:
+          service:
+            name: shop
+            port:
+              number: 80
+      - path: /blog
+        pathType: Prefix
+        backend:
+          service:
+            name: blog
+            port:
+              number: 80
