@@ -16,7 +16,7 @@ spec:
       - name: harbor-pull          # 01장에서 만든 Secret (Git에는 넣지 않는다)
       containers:
       - name: hello-app
-        image: harbor.10.0.1.230.nip.io/edu/hello-app:v9
+        image: harbor.10.0.1.230.nip.io/edu/hello-app:v1
         ports:
         - containerPort: 8080
         readinessProbe:
