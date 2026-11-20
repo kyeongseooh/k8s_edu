@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 920 350" width="920" height="350">
+<defs><marker id="ea" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#374151"/></marker><marker id="sa" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#374151"/></marker><marker id="er" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#e03131"/></marker><marker id="sr" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#e03131"/></marker><marker id="eg" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#22a05a"/></marker><marker id="sg" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#22a05a"/></marker><marker id="eb" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#3b82f6"/></marker><marker id="sb" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#3b82f6"/></marker><marker id="eo" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#f08c00"/></marker><marker id="so" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#f08c00"/></marker><marker id="ep" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#7c3aed"/></marker><marker id="sp" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M10,0 L0,5 L10,10 z" fill="#7c3aed"/></marker></defs>
+<rect width="920" height="350" fill="#ffffff"/>
+<text x="460.0" y="30" font-size="18" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 점검 절차: cordon → drain → 작업 → uncordon</text>
+<rect x="20" y="55" width="200" height="200" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="120.0" y="75" font-size="14" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">1. 평소</text>
+<rect x="40" y="90" width="160" height="150" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="120.0" y="110" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 A</text>
+<text x="120" y="128" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">Ready</text>
+<rect x="55" y="145" width="60" height="45" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="85.0" y="170.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<rect x="125" y="145" width="60" height="45" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="155.0" y="170.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<line x1="222" y1="155" x2="246" y2="155" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="248" y="55" width="200" height="200" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="348.0" y="75" font-size="14" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">2. cordon</text>
+<rect x="268" y="90" width="160" height="150" rx="8" fill="#fff9db" stroke="#e0a800" stroke-width="1.5"/>
+<text x="348.0" y="110" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 A</text>
+<text x="348" y="128" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">SchedulingDisabled</text>
+<rect x="283" y="145" width="60" height="45" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="313.0" y="170.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<rect x="353" y="145" width="60" height="45" rx="8" fill="#e8f1fd" stroke="#3b82f6" stroke-width="1.5"/>
+<text x="383.0" y="170.5" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">Pod</text>
+<line x1="450" y1="155" x2="474" y2="155" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="476" y="55" width="200" height="200" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="576.0" y="75" font-size="14" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">3. drain</text>
+<rect x="496" y="90" width="160" height="150" rx="8" fill="#fff9db" stroke="#e0a800" stroke-width="1.5"/>
+<text x="576.0" y="110" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 A</text>
+<text x="576" y="128" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">SchedulingDisabled</text>
+<rect x="511" y="145" width="60" height="45" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="6 4"/>
+<rect x="581" y="145" width="60" height="45" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="6 4"/>
+<line x1="678" y1="155" x2="702" y2="155" stroke="#374151" stroke-width="1.8" marker-end="url(#ea)"/>
+<rect x="704" y="55" width="200" height="200" rx="8" fill="#f3f4f6" stroke="#6b7280" stroke-width="1.5"/>
+<text x="804.0" y="75" font-size="14" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">4. uncordon</text>
+<rect x="724" y="90" width="160" height="150" rx="8" fill="#e7f6ec" stroke="#22a05a" stroke-width="1.5"/>
+<text x="804.0" y="110" font-size="13" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#111827" font-weight="700">노드 A</text>
+<text x="804" y="128" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">Ready</text>
+<rect x="739" y="145" width="60" height="45" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="6 4"/>
+<rect x="809" y="145" width="60" height="45" rx="8" fill="#ffffff" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="6 4"/>
+<text x="120" y="282" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">새 Pod도 오고</text>
+<text x="120" y="300" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">기존 Pod도 실행 중</text>
+<text x="348" y="282" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">새 Pod는 못 옴</text>
+<text x="348" y="300" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">기존 Pod는 그대로</text>
+<text x="576" y="282" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">기존 Pod를 내보냄</text>
+<text x="576" y="300" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">(다른 노드에 다시 생성)</text>
+<text x="804" y="282" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">다시 새 Pod를 받음</text>
+<text x="804" y="300" font-size="12" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#4b5563">나간 Pod는 안 돌아옴</text>
+<text x="576" y="222" font-size="11" font-family="'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic','Droid Sans Fallback',sans-serif" text-anchor="middle" fill="#e03131">비운 뒤에 노드 작업</text>
+</svg>

@@ -1,0 +1,10 @@
+# 고장 실습: Pod가 4개인데 "항상 4개 이상"을 요구한다 -> 하나도 내보낼 수 없다
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web-pdb
+spec:
+  minAvailable: 4
+  selector:
+    matchLabels:
+      app: web

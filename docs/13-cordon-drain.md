@@ -1,207 +1,364 @@
-# 13. Cordon / Drain — 서버 점검을 위해 노드를 안전하게 비우기
+# 13. Cordon / Drain — 노드를 안전하게 비우기
 
-> 이 장도 **사고 대응 실습** 형식입니다. 다만 이번 장은 **실제 cordon/drain/evict나 노드
-> 자체를 건드리지 않습니다.** 대신 학습용 Deployment + PodDisruptionBudget(PDB)을 가지고,
-> "자발적 축출(voluntary disruption)이 왜 막히는지"를 `disruptionsAllowed` 숫자로 직접
-> 관찰하고 안전하게 풀어봅니다. 실제 노드 점검 절차는 마지막에 **텍스트로만** 비교합니다.
-> 0장에서 배정받은 개인 네임스페이스(`$NS`)를 그대로 쓰고, 네임스페이스는 만들거나
-> 지우지 않습니다.
+**이 장을 마치면**
 
-## 1. 개념
+- 노드 점검 절차(cordon → drain → 작업 → uncordon)를 설명하고 따라 할 수 있습니다.
+- cordon과 drain의 차이를 직접 확인합니다.
+- PodDisruptionBudget(PDB)이 무엇을 지켜 주는지, drain이 멈췄을 때 무엇을 봐야 하는지 압니다.
 
-노드(서버)의 OS를 업데이트하거나 하드웨어를 점검해야 할 때, 그 위에서 돌고 있는 Pod들을
-어떻게 해야 할까요? 그냥 서버를 꺼 버리면 서비스 장애가 납니다. 쿠버네티스는 이를 위한
-두 단계 도구를 제공합니다.
+---
 
-### cordon — 출입 금지 팻말
+## 1. 왜 필요한가
 
-- 해당 노드를 **스케줄링 대상에서 제외** — 새 Pod가 더 이상 배정되지 않음
-- **기존에 돌던 Pod는 그대로** 둠
+노드도 결국 서버입니다. OS 패치, 커널 업그레이드, 디스크 교체, 쿠버네티스 버전 업그레이드를 하려면 서버를 재부팅해야 할 때가 있습니다.
+그 노드에서 Pod가 돌고 있는 채로 전원을 내리면 서비스가 갑자기 끊깁니다.
 
-### drain — 배수(비우기)
+그래서 작업 전에 **그 노드의 Pod를 다른 노드로 옮겨 두는** 절차가 필요합니다.
 
-- cordon(출입 금지) + 기존 Pod들에 **Eviction API**를 호출해서 다른 노드로 옮김
-- 쫓겨난 Pod는 Deployment/StatefulSet 같은 컨트롤러가 다른 노드에 재생성해 줌
+![노드 점검 절차](../images/13-cordon-drain.svg)
 
-> **비유**: 식당 한 구역을 수리한다면 — cordon은 "신규 손님은 이 구역에 앉히지 마"
-> (기존 손님은 식사 계속), drain은 "기존 손님도 모두 다른 구역으로 옮겨 드리고 구역을 비워"입니다.
+| 명령 | 하는 일 | 기존 Pod |
+|---|---|---|
+| `kubectl cordon 노드` | 이 노드에 **새 Pod를 배치하지 않게** 한다 | 그대로 실행 |
+| `kubectl drain 노드` | cordon + **기존 Pod를 내보낸다** | 다른 노드에 다시 만들어짐 |
+| `kubectl uncordon 노드` | 다시 새 Pod를 받게 한다 | — |
 
-### PodDisruptionBudget(PDB) — "최소 몇 개는 항상 살아 있어야 한다"
+> **비유**: cordon은 식당 입구에 "신규 손님 받지 않습니다" 팻말을 거는 것, drain은 안에 있는 손님에게도 자리를 옮겨 달라고 안내하는 것입니다.
 
-drain이 Pod를 쫓아낼 때 쓰는 **Eviction API**는 막무가내로 다 쫓아내지 않습니다. PDB가
-있으면, "지금 당장 몇 개까지 안전하게 쫓아낼 수 있는지"를 계산해서 그 수를 넘으면 **축출
-자체를 거부**합니다. 그 계산 결과가 `kubectl get pdb`의 `disruptionsAllowed` 컬럼입니다.
+"Pod를 옮긴다"고 하지만, 실제로는 **기존 Pod를 지우고 Deployment 같은 컨트롤러가 다른 노드에 새로 만드는** 것입니다. [02장](02-deployment.md)에서 Pod를 지웠을 때 일어난 일과 같습니다.
 
-> **중요한 구분**: PDB는 **자발적 축출(Eviction API) 에만** 적용됩니다. `kubectl delete pod`로
-> 직접 지우거나, 레플리카 수를 줄이는 스케일 다운은 PDB의 통제 대상이 아닙니다. (drain과
-> descheduler가 대표적으로 Eviction API를 씁니다.)
+> **이 장의 실습에 대해**: 실습 클러스터의 노드에는 다른 서비스의 Pod도 함께 돌고 있습니다. 노드를 통째로 비우면 그 서비스들까지 영향을 받습니다.
+> 그래서 3절부터는 `--pod-selector` 옵션으로 **우리가 만든 Pod만** 내보냅니다. 노드 상태를 바꾸는 명령이므로, 각 단계의 `uncordon`을 빠뜨리지 마세요.
 
-## 2. 정상 상태 만들기 — Deployment + PDB
+## 2. 실습 ① — cordon: 새 Pod를 받지 않게 하기
 
-([examples/13-cordon-drain/pdb-lab.yaml](../examples/13-cordon-drain/pdb-lab.yaml))
+Pod 4개짜리 Deployment를 만듭니다. ([examples/13-cordon-drain/web.yaml](../examples/13-cordon-drain/web.yaml))
+
+```bash
+kubectl apply -f examples/13-cordon-drain/web.yaml
+kubectl rollout status deployment/web
+kubectl get pod -o wide
+```
+
+```
+NAME                  READY   STATUS    RESTARTS   AGE   IP               NODE         ...
+web-b7b9944c8-mztcv   1/1     Running   0          2s    192.168.96.127   oks5.dd.io   ...
+web-b7b9944c8-q4dl8   1/1     Running   0          2s    192.168.30.206   oks2.dd.io   ...
+web-b7b9944c8-tfgpb   1/1     Running   0          2s    192.168.201.73   oks3.dd.io   ...
+web-b7b9944c8-xs99w   1/1     Running   0          2s    192.168.139.71   oks4.dd.io   ...
+```
+
+우리 Pod가 있는 노드 하나를 골라 변수에 담습니다.
+
+```bash
+NODE=$(kubectl get pod -l app=web -o jsonpath='{.items[0].spec.nodeName}')
+echo $NODE
+```
+
+```
+oks5.dd.io
+```
+
+이 노드를 cordon합니다.
+
+```bash
+kubectl cordon $NODE
+kubectl get nodes
+```
+
+```
+node/oks5.dd.io cordoned
+
+NAME         STATUS                     ROLES           AGE    VERSION
+oks1.dd.io   Ready                      control-plane   538d   v1.29.15
+oks2.dd.io   Ready                      <none>          538d   v1.29.15
+oks3.dd.io   Ready                      <none>          538d   v1.29.15
+oks4.dd.io   Ready                      <none>          538d   v1.29.15
+oks5.dd.io   Ready,SchedulingDisabled   <none>          538d   v1.29.15
+```
+
+`STATUS`에 **`SchedulingDisabled`** 가 붙었습니다. 그 노드에 있던 Pod는 어떻게 됐을까요?
+
+```bash
+kubectl get pod -o wide --field-selector spec.nodeName=$NODE
+```
+
+```
+NAME                  READY   STATUS    RESTARTS   AGE   IP               NODE         ...
+web-b7b9944c8-mztcv   1/1     Running   0          10s   192.168.96.127   oks5.dd.io   ...
+```
+
+**그대로 실행 중**입니다. cordon은 기존 Pod를 건드리지 않습니다.
+
+Pod를 8개로 늘려서 새 Pod가 어디에 생기는지 봅니다.
+
+```bash
+kubectl scale deployment web --replicas=8
+kubectl rollout status deployment/web
+kubectl get pod -o wide --sort-by=.spec.nodeName
+```
+
+```
+NAME                  READY   STATUS    RESTARTS   AGE   IP               NODE         ...
+web-b7b9944c8-bjrsv   1/1     Running   0          2s    192.168.30.207   oks2.dd.io   ...
+web-b7b9944c8-q4dl8   1/1     Running   0          14s   192.168.30.206   oks2.dd.io   ...
+web-b7b9944c8-qx2vk   1/1     Running   0          2s    192.168.201.72   oks3.dd.io   ...
+web-b7b9944c8-tfgpb   1/1     Running   0          14s   192.168.201.73   oks3.dd.io   ...
+web-b7b9944c8-6c89l   1/1     Running   0          2s    192.168.139.73   oks4.dd.io   ...
+web-b7b9944c8-mrhkv   1/1     Running   0          2s    192.168.139.98   oks4.dd.io   ...
+web-b7b9944c8-xs99w   1/1     Running   0          14s   192.168.139.71   oks4.dd.io   ...
+web-b7b9944c8-mztcv   1/1     Running   0          14s   192.168.96.127   oks5.dd.io   ...
+```
+
+새로 생긴 4개(`AGE` 2초)는 전부 다른 노드로 갔습니다. cordon한 노드(`oks5`)에는 원래 있던 1개뿐입니다.
+
+원래대로 되돌립니다.
+
+```bash
+kubectl uncordon $NODE
+kubectl scale deployment web --replicas=4
+kubectl rollout status deployment/web
+kubectl get nodes
+```
+
+## 3. 실습 ② — drain: 기존 Pod 내보내기
+
+우리 Pod가 있는 노드를 다시 고릅니다(Pod가 바뀌었을 수 있으므로 다시 조회합니다).
+
+```bash
+kubectl get pod -o wide
+NODE=$(kubectl get pod -l app=web -o jsonpath='{.items[0].spec.nodeName}')
+echo $NODE
+```
+
+drain합니다.
+
+```bash
+kubectl drain $NODE --ignore-daemonsets --pod-selector=app=web
+```
+
+```
+node/oks5.dd.io cordoned
+evicting pod edu-lab/web-b7b9944c8-mztcv
+pod/web-b7b9944c8-mztcv evicted
+node/oks5.dd.io drained
+```
+
+| 옵션 | 의미 |
+|---|---|
+| `--ignore-daemonsets` | DaemonSet의 Pod는 내보내지 않고 넘어간다. 노드마다 있어야 하는 Pod라서 내보내도 다시 생기기 때문이다 ([09장](09-daemonset.md)). 거의 항상 붙인다 |
+| `--pod-selector=app=web` | 이 레이블의 Pod만 내보낸다. **실습용 제한**이다. 실제 점검에서는 이 옵션 없이 노드의 모든 Pod를 내보낸다 |
+
+출력을 보면 drain이 한 일이 순서대로 나옵니다. ① 노드를 cordon하고 ② Pod를 내보냈습니다(`evicted`).
+
+```bash
+kubectl get nodes
+kubectl get pod -o wide
+```
+
+```
+NAME         STATUS                     ROLES           AGE    VERSION
+...
+oks5.dd.io   Ready,SchedulingDisabled   <none>          538d   v1.29.15
+
+NAME                  READY   STATUS    RESTARTS   AGE   IP               NODE         ...
+web-b7b9944c8-cjnf8   1/1     Running   0          2s    192.168.139.99   oks4.dd.io   ...
+web-b7b9944c8-q4dl8   1/1     Running   0          13s   192.168.30.206   oks2.dd.io   ...
+web-b7b9944c8-qx2vk   1/1     Running   0          11s   192.168.201.72   oks3.dd.io   ...
+web-b7b9944c8-tfgpb   1/1     Running   0          13s   192.168.201.73   oks3.dd.io   ...
+```
+
+`oks5`에 있던 Pod가 사라지고, **새 Pod**(`...-cjnf8`, `AGE` 2초)가 다른 노드에 생겼습니다. Pod는 여전히 4개입니다.
+
+실제 점검이라면 이 시점에 노드를 재부팅하거나 패치합니다. 작업이 끝났다고 치고 노드를 되돌립니다.
+
+```bash
+kubectl uncordon $NODE
+kubectl get pod -o wide
+```
+
+**uncordon을 해도 나갔던 Pod가 돌아오지는 않습니다.** 이미 다른 노드에서 잘 돌고 있기 때문입니다. 이 노드에는 앞으로 새로 만들어지는 Pod가 배치됩니다.
+
+## 4. PodDisruptionBudget — 한꺼번에 너무 많이 내보내지 않게
+
+drain은 노드의 Pod를 내보냅니다. 만약 앱의 Pod 4개 중 3개가 같은 노드에 있었다면, drain 한 번에 3개가 동시에 사라집니다. 남은 1개로 버티지 못하면 장애입니다.
+
+**PodDisruptionBudget(PDB)** 은 "이 앱의 Pod는 **동시에 최소 몇 개는 살아 있어야 한다**"는 약속입니다. drain은 이 약속을 지키면서 Pod를 내보냅니다.
+
+![PDB](../images/13-pdb.svg)
+
+([examples/13-cordon-drain/pdb.yaml](../examples/13-cordon-drain/pdb.yaml))
 
 ```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: catalog-web
-spec:
-  replicas: 4
-  selector:
-    matchLabels:
-      app: catalog-web
-  template:
-    metadata:
-      labels:
-        app: catalog-web
-    spec:
-      containers:
-      - name: catalog-web
-        image: nginx:1.27-alpine
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 80
----
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: catalog-web-pdb
+  name: web-pdb
 spec:
-  minAvailable: 3        # 건강한 복제본 최소 3개를 유지
+  minAvailable: 3              # app=web Pod는 항상 3개 이상 준비 상태여야 한다
   selector:
     matchLabels:
-      app: catalog-web
+      app: web
 ```
+
+`minAvailable` 대신 `maxUnavailable: 1`(동시에 1개까지만 빠져도 된다)처럼 쓸 수도 있습니다.
+
+## 5. 고장 내고 고쳐 보기 — drain이 끝나지 않는다
+
+누군가 "절대 끊기면 안 되는 서비스"라며 PDB를 이렇게 만들었습니다. ([examples/13-cordon-drain/pdb-strict.yaml](../examples/13-cordon-drain/pdb-strict.yaml))
 
 ```bash
-k apply -f examples/13-cordon-drain/pdb-lab.yaml
-k rollout status deployment/catalog-web --timeout=90s
-k wait pdb/catalog-web-pdb --for=jsonpath='{.status.disruptionsAllowed}'=1 --timeout=60s
+kubectl apply -f examples/13-cordon-drain/pdb-strict.yaml
+kubectl get pdb
 ```
 
-정상 상태에서는 복제본 4개가 준비되어 있고, 이 PDB 기준으로 자발적 축출 1개가 가능합니다.
+```
+NAME      MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+web-pdb   4               N/A               0                     2s
+```
 
-## 3. 장애 발생 — "이 노드 점검해도 될까요?" 미리 확인했더니...
-
-운영팀 요청: "오늘 밤 노드 점검이 있는데, `catalog-web`이 영향받을지 미리 확인해 주세요."
-비용 절감을 위해 누군가 복제본을 한 개 줄인 상황을 내 Deployment에서 재현합니다. 앱은 정상이어도 점검에 쓸 여유가 남아 있을까요?
+이 상태에서 노드를 drain합니다. 끝나지 않을 수 있으니 `--timeout=20s`로 20초만 시도합니다.
 
 ```bash
-k scale deployment catalog-web --replicas=3
-k rollout status deployment/catalog-web --timeout=90s
-k wait pdb/catalog-web-pdb --for=jsonpath='{.status.disruptionsAllowed}'=0 --timeout=60s
-k get pdb catalog-web-pdb
+NODE=$(kubectl get pod -l app=web -o jsonpath='{.items[0].spec.nodeName}')
+kubectl drain $NODE --ignore-daemonsets --pod-selector=app=web --timeout=20s
 ```
 
 ```
-NAME              MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
-catalog-web-pdb   3               N/A                0                    1m
+node/oks4.dd.io cordoned
+evicting pod edu-lab/web-b7b9944c8-cjnf8
+error when evicting pods/"web-b7b9944c8-cjnf8" -n "edu-lab" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod edu-lab/web-b7b9944c8-cjnf8
+error when evicting pods/"web-b7b9944c8-cjnf8" -n "edu-lab" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+...
+error when evicting pods/"web-b7b9944c8-cjnf8" -n "edu-lab": global timeout reached: 20s
 ```
 
-### 증거 / 질문
+5초마다 다시 시도하지만 계속 실패합니다. `--timeout`이 없었다면 영원히 반복했을 것입니다. 원인을 확인해 보세요.
 
 ```bash
-k get deploy catalog-web -o jsonpath='{.spec.replicas}{"\n"}'
-# 3
-
-k get pdb catalog-web-pdb -o jsonpath='{.spec.minAvailable}{"\n"}'
-# 3
-
-k get pdb catalog-web-pdb -o jsonpath='{.status.disruptionsAllowed}{"\n"}'
-# 0
+kubectl describe pdb web-pdb
+kubectl get nodes
 ```
 
-- `replicas`와 `minAvailable`이 똑같이 3입니다. "지금 떠 있는 3개 중 몇 개까지 비워도
-  `minAvailable`을 지킬 수 있을까요?"
-- `disruptionsAllowed`가 0이라는 건, 지금 당장 누군가 drain(또는 descheduler)으로 이
-  Deployment의 Pod를 **단 1개도** 자발적으로 축출할 수 없다는 뜻입니다. 오늘 밤 이 노드에
-  `catalog-web` Pod가 있다면 drain이 거기서 막혀 대기하게 됩니다.
-- `minAvailable`을 낮추는 것과, `replicas`를 늘리는 것 — 어느 쪽이 "여유"를 만들면서도
-  실제 서비스 용량을 줄이지 않는 방법일까요?
+<details><summary>원인과 해결 방법</summary>
 
-## 4. 복구 (막혔을 때만 펼쳐보세요)
+```
+Name:           web-pdb
+Min available:  4
+Selector:       app=web
+Status:
+    Allowed disruptions:  0
+    Current:              4
+    Desired:              4
+    Total:                4
+```
 
-<details><summary>안전한 해결 방법 보기</summary>
+Pod가 4개인데 "항상 4개 이상"을 요구합니다. **`Allowed disruptions: 0`** — 하나도 내보낼 수 없습니다.
+"절대 끊기면 안 된다"는 의도였겠지만, 결과적으로 **노드 점검 자체를 불가능하게** 만든 설정입니다.
 
-PDB의 `minAvailable`을 낮추는 건 "항상 떠 있어야 하는 최소 개수"를 줄이는 것이라, 서비스
-안정성 기준 자체를 낮추는 셈입니다. 더 안전한 방법은 **여유 복제본을 늘려서** 간격을
-만드는 것입니다.
+그리고 drain은 실패했지만 **노드는 cordon된 상태로 남아 있습니다**(`SchedulingDisabled`). drain이 중간에 멈추면 노드 상태를 꼭 확인해야 합니다.
+
+PDB를 "4개 중 3개 유지"로 고치고 다시 drain합니다.
 
 ```bash
-k scale deployment catalog-web --replicas=4
-k rollout status deployment/catalog-web --timeout=90s
-k wait pdb/catalog-web-pdb --for=jsonpath='{.status.disruptionsAllowed}'=1 --timeout=60s
-k get pdb catalog-web-pdb
+kubectl apply -f examples/13-cordon-drain/pdb.yaml
+kubectl get pdb
+kubectl drain $NODE --ignore-daemonsets --pod-selector=app=web --timeout=90s
 ```
 
 ```
-NAME              MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
-catalog-web-pdb   3               N/A                1                    2m
+NAME      MIN AVAILABLE   MAX UNAVAILABLE   ALLOWED DISRUPTIONS   AGE
+web-pdb   3               N/A               1                     25s
+
+node/oks4.dd.io already cordoned
+evicting pod edu-lab/web-b7b9944c8-cjnf8
+pod/web-b7b9944c8-cjnf8 evicted
+node/oks4.dd.io drained
+```
+
+`ALLOWED DISRUPTIONS`가 1이 되자 drain이 바로 성공했습니다. 노드를 되돌립니다.
+
+```bash
+kubectl uncordon $NODE
 ```
 
 </details>
 
-## 5. 성공 판정
+> **PDB를 만들 때의 원칙**: `minAvailable`은 반드시 `replicas`보다 작아야 합니다. Pod가 1개뿐인 앱에 `minAvailable: 1`을 걸어도 같은 문제가 생깁니다.
+
+## 6. 정리
 
 ```bash
-ALLOWED=$(k get pdb catalog-web-pdb -o jsonpath='{.status.disruptionsAllowed}')
-echo "disruptionsAllowed=$ALLOWED"
-if [ "$ALLOWED" -ge 1 ]; then
-  echo "PASS: 이 PDB에서 자발적 축출 1개를 허용"
-else
-  echo "FAIL: 여전히 0 — 아직 여유가 없음"
-fi
+kubectl delete -f examples/13-cordon-drain/web.yaml -f examples/13-cordon-drain/pdb.yaml
+kubectl get nodes
 ```
 
-`disruptionsAllowed >= 1`이면 성공입니다. 즉 `minAvailable=3`이라는 안정성 기준은 그대로
-지키면서 이 앱의 점검 여유를 회복했습니다. **이 숫자가 drain 전체의 성공을 보장하지는 않습니다.** 다른 앱의 PDB, 대체 노드의 자원·배치 조건, 로컬 데이터도 따로 확인합니다.
+**모든 노드의 `STATUS`가 `Ready`인지 꼭 확인하세요.** `SchedulingDisabled`가 남아 있는 노드가 있다면 `kubectl uncordon 노드이름`으로 되돌립니다.
 
-## 6. 실무 절차 비교 (텍스트로만 — 실행하지 않음)
+## 7. 알아 두면 좋은 것
 
-실제 운영에서 노드를 점검할 때는 다음 순서를 씁니다. **이 실습에서는 아래를 실행하지
-않습니다** — 실제 노드와 클러스터 상태를 바꾸는 명령이기 때문입니다.
+### 실제 점검 절차
 
 ```text
-1. kubectl cordon <노드>                              # 신규 스케줄링 금지
-2. kubectl drain <노드> --ignore-daemonsets          # 정책이 허용하는 Pod를 Eviction API로 축출
-     # ↳ 이때 PDB의 disruptionsAllowed가 0이면 drain은 그 Pod를 비우지 못하고 대기/재시도한다
-3. (OS 패치, 재부팅, 하드웨어 점검 등)
-4. kubectl uncordon <노드>                             # 스케줄링 복귀
+kubectl cordon <노드>                                   # 1. 새 Pod 차단
+kubectl get pod -A -o wide --field-selector spec.nodeName=<노드>   # 2. 이 노드에 무엇이 있는지 확인
+kubectl drain <노드> --ignore-daemonsets --delete-emptydir-data    # 3. 비우기
+# 4. 노드 작업 (패치, 재부팅 등)
+kubectl uncordon <노드>                                 # 5. 복귀
+kubectl get nodes                                       # 6. Ready 확인
 ```
 
-- `--ignore-daemonsets`: DaemonSet Pod(9장)는 "노드당 1개"가 숙명이라 다른 노드로 옮길 수
-  없으므로 무시하고 진행하라는 옵션. 거의 항상 필요합니다.
-- `--delete-emptydir-data`: emptyDir 데이터가 소실되어도 되는지 소유자가 확인·승인한 특수한 경우의 옵션입니다. 기본 절차에 붙이지 않습니다.
-- `disruptionsAllowed`는 **이 PDB가 허용하는 축출 수**의 현재 관측값입니다. 실무에서는 drain 전에 반드시 관련 PDB 상태를
-  먼저 확인합니다.
-- `uncordon`해도 쫓겨났던 Pod들이 자동으로 "돌아오지는" 않습니다. 이후 새로 생기는 Pod부터
-  그 노드에 배정될 수 있게 되는 것입니다.
+### drain이 거부하는 Pod
 
-## 7. 정리
+| 상황 | drain의 반응 | 필요한 옵션 |
+|---|---|---|
+| DaemonSet의 Pod가 있다 | 중단 | `--ignore-daemonsets` |
+| `emptyDir` 볼륨을 쓰는 Pod가 있다 | 중단 (Pod가 지워지면 그 데이터도 사라지므로) | `--delete-emptydir-data` |
+| Deployment 등이 관리하지 않는 **단독 Pod**가 있다 | 중단 (지우면 아무도 다시 만들어 주지 않으므로) | `--force` (그 Pod는 사라진다) |
+| PDB 때문에 내보낼 수 없다 | 5초마다 재시도 | PDB나 `replicas`를 조정 |
 
-```bash
-k delete pdb catalog-web-pdb
-k delete deployment catalog-web
+단독 Pod가 있을 때는 이런 메시지가 나옵니다. [01장](01-pod.md)에서 "Pod를 직접 만들지 말고 Deployment를 쓰라"고 한 이유 중 하나입니다.
+
 ```
+error: unable to drain node "oks4.dd.io" due to error: cannot delete Pods declare no controller (use --force to override): edu-lab/solo
+```
+
+### cordon의 정체
+
+cordon된 노드를 `describe`하면 taint가 하나 붙어 있습니다. cordon은 결국 "이 노드에는 스케줄하지 말라"는 taint를 붙이는 것입니다. taint는 [15장](15-scheduling.md)에서 배웁니다.
+
+```
+Taints:             node.kubernetes.io/unschedulable:NoSchedule
+Unschedulable:      true
+```
+
+## 핵심 요약
+
+- cordon은 새 Pod를 막고, drain은 기존 Pod까지 내보낸다. 작업 후에는 uncordon으로 되돌린다.
+- drain은 Pod를 옮기는 것이 아니라 지우는 것이다. 컨트롤러가 다른 노드에 다시 만든다.
+- uncordon을 해도 나갔던 Pod가 돌아오지는 않는다.
+- PDB는 동시에 살아 있어야 하는 최소 Pod 수를 보장한다. drain은 PDB를 지킨다.
+- `minAvailable`이 `replicas`와 같으면 drain이 끝나지 않는다.
+- drain이 실패해도 노드는 cordon 상태로 남는다.
 
 ## 확인 문제
 
-1. cordon과 drain의 차이 한 줄 요약은?
-2. PDB는 어떤 종류의 Pod 제거(삭제)에 적용되는가? (힌트: 모든 삭제에 적용되지 않는다)
-3. `disruptionsAllowed`가 0일 때 가장 안전한 해결 방법은 무엇이고, 왜 `minAvailable`을
-   낮추는 것보다 나은가?
+1. cordon과 drain의 차이는 무엇인가요?
+2. 노드를 drain하고 작업을 마친 뒤 uncordon했습니다. 원래 그 노드에 있던 Pod들은 돌아오나요?
+3. `replicas: 2`인 Deployment에 `minAvailable: 2`인 PDB가 있습니다. 이 Pod가 있는 노드를 drain하면 어떻게 되나요?
+4. drain할 때 `--ignore-daemonsets`를 붙이는 이유는 무엇인가요?
+5. drain이 PDB 때문에 실패했습니다. 노드의 상태는 어떻게 되어 있나요?
 
 <details><summary>정답 보기</summary>
 
-1. cordon은 "새 Pod만 금지"(기존 유지), drain은 "새 Pod 금지 + 기존 Pod도 Eviction API로
-   다른 노드로 이동"
-2. Eviction API를 통한 자발적 축출(voluntary disruption)에만 적용된다 — drain, descheduler
-   등. `kubectl delete pod`나 스케일 다운 같은 직접 삭제에는 적용되지 않는다.
-3. 복제본 수를 늘려 여유를 만드는 것. `minAvailable`을 낮추면 "항상 보장되는 최소 가용 개수"
-   자체가 줄어들어 서비스 안정성 기준이 낮아지지만, 복제본을 늘리면 안정성 기준은 그대로
-   지키면서 여유만 생긴다.
+1. cordon은 새 Pod가 배치되지 않게만 하고 기존 Pod는 그대로 둡니다. drain은 cordon을 한 뒤 기존 Pod까지 내보냅니다.
+2. 돌아오지 않습니다. 이미 다른 노드에 다시 만들어져 실행 중이기 때문입니다. 이후 새로 만들어지는 Pod가 그 노드에 배치될 수 있습니다.
+3. 내보낼 수 있는 Pod가 0개이므로 drain이 계속 재시도하며 끝나지 않습니다. `minAvailable`을 1로 낮추거나 `replicas`를 늘려야 합니다.
+4. DaemonSet의 Pod는 노드마다 하나씩 있어야 하는 것이라 내보내도 같은 노드에 다시 생깁니다. 이 옵션이 없으면 drain이 중단됩니다.
+5. cordon된 상태(`SchedulingDisabled`)로 남아 있습니다. drain을 다시 성공시키거나, 포기한다면 uncordon해야 합니다.
 </details>
 
 ---
 
-다음 장: [14. etcd 백업 / 복구](14-etcd-backup-restore.md)
+다음 장: [14. etcd 백업과 복원 — 클러스터의 기억 지키기](14-etcd-backup-restore.md)
