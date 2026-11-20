@@ -77,3 +77,8 @@ redis:
 # ── 지표: Prometheus가 읽을 수 있는 형태로 내보낸다 (06장에서 사용) ──
 statsd:
   enabled: true
+
+# ── 화면에 표시할 이름 ───────────────────────────────────
+config:
+  webserver:
+    instance_name: "EDU Airflow"
